@@ -1,6 +1,7 @@
 const { autoUpdater } = require('electron-updater');
 
-const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const STARTUP_RECHECK_MS = 30 * 1000;
 
 function sendStatus(mainWindow, payload) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -11,6 +12,12 @@ function setupAutoUpdater(mainWindow) {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.disableDifferentialDownload = false;
+
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'FahadAbdulQayyum',
+    repo: 'Gym',
+  });
 
   autoUpdater.on('checking-for-update', () => {
     sendStatus(mainWindow, { status: 'checking' });
@@ -45,6 +52,7 @@ function setupAutoUpdater(mainWindow) {
   });
 
   autoUpdater.on('error', (error) => {
+    console.error('[updater]', error);
     sendStatus(mainWindow, {
       status: 'error',
       message: error?.message ?? 'Update check failed',
@@ -55,10 +63,20 @@ function setupAutoUpdater(mainWindow) {
     return autoUpdater.checkForUpdates();
   }
 
-  checkForUpdates().catch(() => {});
+  checkForUpdates().catch((error) => {
+    console.error('[updater] initial check failed:', error);
+  });
+
+  const startupRecheckId = setTimeout(() => {
+    checkForUpdates().catch((error) => {
+      console.error('[updater] startup recheck failed:', error);
+    });
+  }, STARTUP_RECHECK_MS);
 
   const intervalId = setInterval(() => {
-    checkForUpdates().catch(() => {});
+    checkForUpdates().catch((error) => {
+      console.error('[updater] scheduled check failed:', error);
+    });
   }, CHECK_INTERVAL_MS);
 
   return {
@@ -67,7 +85,10 @@ function setupAutoUpdater(mainWindow) {
     quitAndInstall: () => {
       autoUpdater.quitAndInstall(false, true);
     },
-    dispose: () => clearInterval(intervalId),
+    dispose: () => {
+      clearTimeout(startupRecheckId);
+      clearInterval(intervalId);
+    },
   };
 }
 

@@ -246,6 +246,23 @@
   text-align: center;
 }
 
+.footer-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.footer-link:hover {
+  color: #90cdf4;
+}
+
 .update-banner {
   display: flex;
   flex-wrap: wrap;

@@ -71,6 +71,11 @@ export default function App() {
     window.gymApp?.installUpdate?.();
   }
 
+  function checkForUpdates() {
+    setUpdate({ status: 'checking' });
+    window.gymApp?.checkForUpdates?.();
+  }
+
   return (
     <div className="app">
       <UpdateBanner update={update} onInstall={installUpdate} />
@@ -90,6 +95,14 @@ export default function App() {
 
       <footer className="footer">
         {appVersion ? `Gym v${appVersion}` : 'Gym'} · {window.gymApp?.platform ?? 'desktop'}
+        {window.gymApp?.checkForUpdates && (
+          <>
+            {' · '}
+            <button type="button" className="footer-link" onClick={checkForUpdates}>
+              Check for updates
+            </button>
+          </>
+        )}
       </footer>
     </div>
   );
