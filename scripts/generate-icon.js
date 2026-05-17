@@ -4,7 +4,7 @@ const sharp = require('sharp');
 const pngToIco = require('png-to-ico');
 
 const root = path.join(__dirname, '..');
-const source = path.join(root, 'assets', 'icon.png');
+const source = path.join(root, 'assets', 'dumble.png');
 const output = path.join(root, 'assets', 'icon.ico');
 const sizes = [16, 32, 48, 256];
 

@@ -20,7 +20,7 @@ function loadAppIcon() {
   const iconPath =
     process.platform === 'win32'
       ? path.join(assetsDir, 'icon.ico')
-      : path.join(assetsDir, 'icon.png');
+      : path.join(assetsDir, 'dumble.png');
   const icon = nativeImage.createFromPath(iconPath);
   return icon.isEmpty() ? undefined : icon;
 }

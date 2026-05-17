@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import icon from '../assets/icon.png';
+import icon from '../assets/dumble.png';
 import StudentsDashboard from './StudentsDashboard';
 import './App.css';
 
