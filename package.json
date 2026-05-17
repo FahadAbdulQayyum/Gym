@@ -8,7 +8,7 @@
     "dev": "concurrently -k \"vite --host localhost\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build": "vite build",
     "generate-icon": "node scripts/generate-icon.js",
-    "dist": "npm run generate-icon && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && electron-builder --win",
+    "dist": "npm run generate-icon && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && electron-builder --win --publish never",
     "release": "npm run generate-icon && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && electron-builder --win --publish always",
     "prepare-upload": "node scripts/prepare-release-upload.cjs",
     "dist:upload": "npm run dist && npm run prepare-upload",
