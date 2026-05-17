@@ -19,7 +19,7 @@ function createStaticServer(rootDir) {
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
       try {
-        const url = new URL(req.url, 'http://127.0.0.1');
+        const url = new URL(req.url, 'http://localhost');
         let relativePath = decodeURIComponent(url.pathname);
         if (relativePath === '/' || relativePath === '') {
           relativePath = '/index.html';
@@ -51,7 +51,7 @@ function createStaticServer(rootDir) {
 
     server.listen(0, '127.0.0.1', () => {
       const { port } = server.address();
-      resolve({ server, port, url: `http://127.0.0.1:${port}/` });
+      resolve({ server, port, url: `http://localhost:${port}/` });
     });
 
     server.on('error', reject);

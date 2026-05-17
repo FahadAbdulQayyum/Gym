@@ -81,7 +81,7 @@ export default function App() {
         </div>
         <div className="header-text">
           <h1>Gym</h1>
-          <p className="subtitle">Students, attendance &amp; fingerprint check-in</p>
+          <p className="subtitle">Students, attendance &amp; member ID / PIN check-in</p>
         </div>
         <span className="header-badge">Dashboard</span>
       </header>

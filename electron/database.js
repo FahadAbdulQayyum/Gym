@@ -11,6 +11,43 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+const CHECK_IN_METHODS = new Set(['manual', 'fingerprint', 'pin', 'memberId']);
+
+function generateMemberCode(students) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    if (!students.some((s) => s.memberCode === code)) {
+      return code;
+    }
+  }
+  throw new Error('Could not generate a unique member ID');
+}
+
+function hashPin(pin) {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.pbkdf2Sync(String(pin), salt, 120000, 32, 'sha256');
+  return {
+    salt: salt.toString('base64'),
+    hash: hash.toString('base64'),
+  };
+}
+
+function verifyPin(pin, saltBase64, hashBase64) {
+  const salt = Buffer.from(saltBase64, 'base64');
+  const expected = Buffer.from(hashBase64, 'base64');
+  const actual = crypto.pbkdf2Sync(String(pin), salt, 120000, 32, 'sha256');
+  if (expected.length !== actual.length) return false;
+  return crypto.timingSafeEqual(expected, actual);
+}
+
+function validatePin(pin) {
+  const digits = String(pin ?? '').trim();
+  if (!/^\d{4,6}$/.test(digits)) {
+    throw new Error('PIN must be 4–6 digits');
+  }
+  return digits;
+}
+
 class StudentDatabase {
   constructor() {
     this.filePath = null;
@@ -29,6 +66,7 @@ class StudentDatabase {
       this.data = {
         students: Array.isArray(parsed.students) ? parsed.students : [],
       };
+      await this.ensureMemberCodes();
     } catch (error) {
       if (error.code === 'ENOENT') {
         await this.save();
@@ -43,14 +81,31 @@ class StudentDatabase {
     await fs.writeFile(this.filePath, JSON.stringify(this.data, null, 2), 'utf8');
   }
 
+  async ensureMemberCodes() {
+    let changed = false;
+    for (const student of this.data.students) {
+      if (!student.memberCode) {
+        student.memberCode = generateMemberCode(this.data.students);
+        changed = true;
+      }
+    }
+    if (changed) {
+      await this.save();
+    }
+  }
+
   listStudents() {
     return [...this.data.students]
       .map((student) => this.normalizeStudent(student))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  getStudentRecord(id) {
+    return this.data.students.find((s) => s.id === id) ?? null;
+  }
+
   getStudent(id) {
-    const student = this.data.students.find((s) => s.id === id);
+    const student = this.getStudentRecord(id);
     return student ? this.normalizeStudent(student) : null;
   }
 
@@ -84,19 +139,22 @@ class StudentDatabase {
     const student = {
       id: newId(),
       ...fields,
+      memberCode: generateMemberCode(this.data.students),
       createdAt: timestamp,
       updatedAt: timestamp,
       fingerprint: null,
+      pinHash: null,
+      pinSalt: null,
       attendance: [],
     };
 
     this.data.students.push(student);
     await this.save();
-    return student;
+    return this.normalizeStudent(student);
   }
 
   async updateStudent(id, payload) {
-    const student = this.getStudent(id);
+    const student = this.getStudentRecord(id);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -104,7 +162,7 @@ class StudentDatabase {
     const fields = this.validateStudentInput(payload);
     Object.assign(student, fields, { updatedAt: nowIso() });
     await this.save();
-    return student;
+    return this.normalizeStudent(student);
   }
 
   async deleteStudent(id) {
@@ -122,24 +180,82 @@ class StudentDatabase {
     if (!student.fingerprint) {
       student.fingerprint = null;
     }
+    if (!student.memberCode) {
+      student.memberCode = generateMemberCode(this.data.students);
+    }
     for (const record of student.attendance) {
       if (!record.method) {
         record.method = 'manual';
       }
     }
-    return student;
+    const { pinHash, pinSalt, ...safe } = student;
+    return {
+      ...safe,
+      hasPin: Boolean(pinHash && pinSalt),
+    };
   }
 
-  async checkIn(studentId, method = 'manual') {
-    const student = this.getStudent(studentId);
+  findStudentByMemberCode(memberCode) {
+    const code = String(memberCode ?? '').trim();
+    const match = this.data.students.find((s) => s.memberCode === code);
+    return match ? this.normalizeStudent(match) : null;
+  }
+
+  findStudentByPin(pin) {
+    const digits = validatePin(pin);
+    const match = this.data.students.find(
+      (s) => s.pinHash && s.pinSalt && verifyPin(digits, s.pinSalt, s.pinHash)
+    );
+    return match ? this.normalizeStudent(match) : null;
+  }
+
+  async setPin(studentId, pin) {
+    const student = this.getStudentRecord(studentId);
     if (!student) {
       throw new Error('Student not found');
     }
 
+    const digits = validatePin(pin);
+    const duplicate = this.data.students.find(
+      (entry) => entry.id !== studentId && entry.pinHash && verifyPin(digits, entry.pinSalt, entry.pinHash)
+    );
+    if (duplicate) {
+      throw new Error(`This PIN is already used by ${duplicate.name}`);
+    }
+
+    const { salt, hash } = hashPin(digits);
+    student.pinSalt = salt;
+    student.pinHash = hash;
+    student.updatedAt = nowIso();
+    await this.save();
+    return this.normalizeStudent(student);
+  }
+
+  async clearPin(studentId) {
+    const student = this.getStudentRecord(studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    student.pinHash = null;
+    student.pinSalt = null;
+    student.updatedAt = nowIso();
+    await this.save();
+    return this.normalizeStudent(student);
+  }
+
+  async checkIn(studentId, method = 'manual') {
+    const student = this.getStudentRecord(studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    const normalizedMethod = CHECK_IN_METHODS.has(method) ? method : 'manual';
+
     const record = {
       id: newId(),
       checkedInAt: nowIso(),
-      method: method === 'fingerprint' ? 'fingerprint' : 'manual',
+      method: normalizedMethod,
     };
 
     student.attendance.unshift(record);
@@ -155,8 +271,8 @@ class StudentDatabase {
     return match ? this.normalizeStudent(match) : null;
   }
 
-  async registerFingerprint(studentId, credentialId) {
-    const student = this.getStudent(studentId);
+  async registerFingerprint(studentId, credentialId, userHandle) {
+    const student = this.getStudentRecord(studentId);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -173,17 +289,23 @@ class StudentDatabase {
       throw new Error(`This fingerprint is already enrolled for ${duplicate.name}`);
     }
 
-    student.fingerprint = {
+    const fingerprint = {
       credentialId: trimmed,
       enrolledAt: nowIso(),
     };
+    const handle = String(userHandle ?? '').trim();
+    if (handle) {
+      fingerprint.userHandle = handle;
+    }
+
+    student.fingerprint = fingerprint;
     student.updatedAt = nowIso();
     await this.save();
     return this.normalizeStudent(student);
   }
 
   async clearFingerprint(studentId) {
-    const student = this.getStudent(studentId);
+    const student = this.getStudentRecord(studentId);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -203,8 +325,24 @@ class StudentDatabase {
     return this.checkIn(student.id, 'fingerprint');
   }
 
+  async checkInByMemberCode(memberCode) {
+    const student = this.findStudentByMemberCode(memberCode);
+    if (!student) {
+      throw new Error('Member ID not found');
+    }
+    return this.checkIn(student.id, 'memberId');
+  }
+
+  async checkInByPin(pin) {
+    const student = this.findStudentByPin(pin);
+    if (!student) {
+      throw new Error('PIN not recognized');
+    }
+    return this.checkIn(student.id, 'pin');
+  }
+
   async deleteAttendance(studentId, attendanceId) {
-    const student = this.getStudent(studentId);
+    const student = this.getStudentRecord(studentId);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -257,9 +395,9 @@ function registerDatabaseHandlers(ipcMain) {
     return database.checkIn(studentId, method);
   });
 
-  ipcMain.handle('db:fingerprint:register', async (_event, { studentId, credentialId }) => {
+  ipcMain.handle('db:fingerprint:register', async (_event, { studentId, credentialId, userHandle }) => {
     const database = await getDatabase();
-    return database.registerFingerprint(studentId, credentialId);
+    return database.registerFingerprint(studentId, credentialId, userHandle);
   });
 
   ipcMain.handle('db:fingerprint:clear', async (_event, { studentId }) => {
@@ -275,6 +413,26 @@ function registerDatabaseHandlers(ipcMain) {
   ipcMain.handle('db:attendance:delete', async (_event, { studentId, attendanceId }) => {
     const database = await getDatabase();
     return database.deleteAttendance(studentId, attendanceId);
+  });
+
+  ipcMain.handle('db:pin:set', async (_event, { studentId, pin }) => {
+    const database = await getDatabase();
+    return database.setPin(studentId, pin);
+  });
+
+  ipcMain.handle('db:pin:clear', async (_event, { studentId }) => {
+    const database = await getDatabase();
+    return database.clearPin(studentId);
+  });
+
+  ipcMain.handle('db:attendance:check-in-member-code', async (_event, { memberCode }) => {
+    const database = await getDatabase();
+    return database.checkInByMemberCode(memberCode);
+  });
+
+  ipcMain.handle('db:attendance:check-in-pin', async (_event, { pin }) => {
+    const database = await getDatabase();
+    return database.checkInByPin(pin);
   });
 }
 

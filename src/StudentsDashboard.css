@@ -278,8 +278,125 @@
   line-height: 1.4;
 }
 
+.quick-checkin-card {
+  margin-bottom: 20px;
+  border-color: rgba(104, 211, 145, 0.35);
+}
+
+.quick-checkin-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #68d391;
+  background: var(--accent-soft);
+  border: 1px solid rgba(104, 211, 145, 0.35);
+}
+
+.quick-checkin-card__hint,
+.quick-checkin-card__tip {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.quick-checkin-card__tip {
+  margin-bottom: 0;
+  font-size: 0.82rem;
+}
+
+.quick-checkin-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.quick-checkin-form label {
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.quick-checkin-form input {
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: rgba(8, 12, 16, 0.55);
+  color: var(--text);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+}
+
+.quick-checkin-form__or {
+  align-self: center;
+  padding-bottom: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.quick-checkin-form .btn-primary {
+  flex: 0 0 auto;
+  margin-top: 0;
+  min-width: 120px;
+}
+
+.member-code {
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  letter-spacing: 0.08em;
+  color: #9ae6b4;
+}
+
+.member-pin-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(8, 12, 16, 0.45);
+}
+
+.member-pin-panel strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.member-pin-panel p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.member-pin-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-pin-form input {
+  width: 140px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: rgba(8, 12, 16, 0.55);
+  color: var(--text);
+}
+
 .fingerprint-quick-card {
   margin-bottom: 20px;
+}
+
+.fingerprint-quick-card--optional {
+  opacity: 0.92;
 }
 
 .fingerprint-quick-card__hint {
@@ -287,6 +404,46 @@
   font-size: 0.9rem;
   color: var(--text-muted);
   line-height: 1.45;
+}
+
+.fingerprint-notice {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(246, 173, 85, 0.35);
+  background: rgba(61, 48, 20, 0.35);
+  font-size: 0.85rem;
+  color: #fbd38d;
+  line-height: 1.5;
+}
+
+.fingerprint-notice strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #f6ad55;
+}
+
+.fingerprint-notice p {
+  margin: 0 0 8px;
+}
+
+.fingerprint-notice p:last-child {
+  margin-bottom: 0;
+}
+
+.fingerprint-notice__steps {
+  margin: 8px 0 10px;
+  padding-left: 1.2rem;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.fingerprint-notice__steps li {
+  margin-bottom: 6px;
+}
+
+.fingerprint-notice__steps li:last-child {
+  margin-bottom: 0;
 }
 
 .fingerprint-status {

@@ -31,10 +31,24 @@ function formatTimestamp(iso) {
   });
 }
 
+function formatCheckInMethod(method) {
+  switch (method) {
+    case 'fingerprint':
+      return 'Fingerprint';
+    case 'pin':
+      return 'PIN';
+    case 'memberId':
+      return 'Member ID';
+    default:
+      return 'Manual';
+  }
+}
+
 const emptyForm = () => ({
   name: '',
   age: '',
   entryDate: todayInputValue(),
+  pin: '',
 });
 
 export default function StudentsDashboard() {
@@ -47,7 +61,11 @@ export default function StudentsDashboard() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [fingerprintReady, setFingerprintReady] = useState(false);
-  const [enrollFingerprintOnSave, setEnrollFingerprintOnSave] = useState(true);
+  const [enrollFingerprintOnSave, setEnrollFingerprintOnSave] = useState(false);
+  const [setPinOnSave, setSetPinOnSave] = useState(true);
+  const [quickMemberCode, setQuickMemberCode] = useState('');
+  const [quickPin, setQuickPin] = useState('');
+  const [pinEdit, setPinEdit] = useState('');
 
   const api = window.gymApp?.students;
 
@@ -86,7 +104,8 @@ export default function StudentsDashboard() {
   function resetForm() {
     setForm(emptyForm());
     setEditingId(null);
-    setEnrollFingerprintOnSave(true);
+    setEnrollFingerprintOnSave(false);
+    setSetPinOnSave(true);
   }
 
   function startEdit(student) {
@@ -96,13 +115,23 @@ export default function StudentsDashboard() {
       name: student.name,
       age: String(student.age),
       entryDate: student.entryDate,
+      pin: '',
     });
     setEnrollFingerprintOnSave(!student.fingerprint?.credentialId);
+    setSetPinOnSave(false);
+    setPinEdit('');
   }
 
   async function enrollStudentFingerprint(student) {
-    const credentialId = await enrollFingerprint(student);
-    await api.registerFingerprint(student.id, credentialId);
+    // Only exclude this member's old credential (re-enroll). Do not pass other members'
+    // credentials — that can make Windows refuse a second passkey for the gym app.
+    const excludeCredentialIds = student.fingerprint?.credentialId
+      ? [student.fingerprint.credentialId]
+      : [];
+    const { credentialId, userHandle } = await enrollFingerprint(student, {
+      excludeCredentialIds,
+    });
+    await api.registerFingerprint(student.id, credentialId, userHandle);
     return credentialId;
   }
 
@@ -132,25 +161,27 @@ export default function StudentsDashboard() {
           await enrollStudentFingerprint(updated);
           setSuccess(`Updated ${updated.name} and enrolled fingerprint for attendance.`);
         } else {
-          setSuccess(`Updated ${updated.name}.`);
+          setSuccess(`Updated ${updated.name}. Member ID: ${updated.memberCode}.`);
         }
       } else {
         const created = await api.create(payload);
         setSelectedId(created.id);
 
+        if (setPinOnSave && form.pin.trim()) {
+          await api.setPin(created.id, form.pin.trim());
+        }
+
         if (enrollFingerprintOnSave && fingerprintReady) {
           await enrollStudentFingerprint(created);
           setSuccess(
-            `Registered ${created.name}. Fingerprint saved — they can check in by scanning at the door.`
-          );
-        } else if (enrollFingerprintOnSave && !fingerprintReady) {
-          setSuccess(
-            `Registered ${created.name}. Enable Windows Hello on this PC, then enroll their fingerprint from the attendance panel.`
+            `Registered ${created.name}. Member ID: ${created.memberCode}. Fingerprint enrolled.`
           );
         } else {
-          setSuccess(
-            `Registered ${created.name}. Enroll their fingerprint later for scan-to-check-in.`
-          );
+          const pinNote =
+            setPinOnSave && form.pin.trim()
+              ? ' They can check in with their PIN or Member ID.'
+              : ' Set a PIN in the attendance panel for quick check-in.';
+          setSuccess(`Registered ${created.name}. Member ID: ${created.memberCode}.${pinNote}`);
         }
       }
 
@@ -303,6 +334,69 @@ export default function StudentsDashboard() {
     }
   }
 
+  async function handleQuickCheckIn(event) {
+    event.preventDefault();
+    if (!api) return;
+
+    const pin = quickPin.trim();
+    const memberCode = quickMemberCode.trim();
+
+    if (!pin && !memberCode) {
+      setError('Enter a Member ID or PIN to check in.');
+      return;
+    }
+
+    setSaving(true);
+    clearMessages();
+    try {
+      const result = pin
+        ? await api.checkInByPin(pin)
+        : await api.checkInByMemberCode(memberCode);
+      setSuccess(`${result.student.name} checked in.`);
+      setSelectedId(result.student.id);
+      setQuickPin('');
+      setQuickMemberCode('');
+      await loadStudents();
+    } catch (err) {
+      setError(err.message ?? 'Check-in failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSetPin(event) {
+    event.preventDefault();
+    if (!api || !selected) return;
+
+    setSaving(true);
+    clearMessages();
+    try {
+      await api.setPin(selected.id, pinEdit.trim());
+      setPinEdit('');
+      setSuccess(`PIN updated for ${selected.name}.`);
+      await loadStudents();
+    } catch (err) {
+      setError(err.message ?? 'Failed to set PIN');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleClearPin() {
+    if (!api || !selected) return;
+    const confirmed = window.confirm(`Remove PIN for ${selected.name}?`);
+    if (!confirmed) return;
+
+    clearMessages();
+    try {
+      await api.clearPin(selected.id);
+      setSuccess(`PIN removed for ${selected.name}.`);
+      await loadStudents();
+    } catch (err) {
+      setError(err.message ?? 'Failed to remove PIN');
+    }
+  }
+
   return (
     <div className="students-dashboard">
       {error && (
@@ -317,16 +411,84 @@ export default function StudentsDashboard() {
         </div>
       )}
 
-      <section className="card fingerprint-quick-card">
+      <section className="card quick-checkin-card">
+        <div className="card-header">
+          <h2>Quick check-in</h2>
+          <span className="quick-checkin-badge">Recommended</span>
+        </div>
+        <p className="quick-checkin-card__hint">
+          Each member gets a unique 6-digit Member ID. They can also use a personal PIN (4–6 digits).
+          No extra hardware required.
+        </p>
+        <form className="quick-checkin-form" onSubmit={handleQuickCheckIn}>
+          <label>
+            Member ID
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={6}
+              placeholder="e.g. 482913"
+              value={quickMemberCode}
+              onChange={(e) => setQuickMemberCode(e.target.value.replace(/\D/g, ''))}
+              disabled={saving || !api}
+            />
+          </label>
+          <span className="quick-checkin-form__or">or</span>
+          <label>
+            PIN
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={6}
+              placeholder="4–6 digits"
+              value={quickPin}
+              onChange={(e) => setQuickPin(e.target.value.replace(/\D/g, ''))}
+              disabled={saving || !api}
+            />
+          </label>
+          <button type="submit" className="btn-primary" disabled={saving || !api}>
+            Check in
+          </button>
+        </form>
+        <p className="quick-checkin-card__tip">
+          Tip: a cheap USB barcode scanner can type the Member ID and press Enter — works like a keyboard.
+        </p>
+      </section>
+
+      <section className="card fingerprint-quick-card fingerprint-quick-card--optional">
         <div className="card-header">
           <h2>Fingerprint check-in</h2>
           <span className={`fingerprint-status ${fingerprintReady ? 'is-ready' : ''}`}>
-            {fingerprintReady ? 'Windows Hello ready' : 'Not available'}
+            {fingerprintReady ? 'Windows Hello ready' : 'Optional'}
           </span>
         </div>
         <p className="fingerprint-quick-card__hint">
-          Scan an enrolled fingerprint to check in instantly — no need to select a student first.
+          Optional — uses Windows Hello on this PC only (see note below).
         </p>
+        <div className="fingerprint-notice" role="note">
+          <strong>Enroll a different finger per member</strong>
+          <ol className="fingerprint-notice__steps">
+            <li>
+              <strong>Windows first:</strong> Settings → Accounts → Sign-in options → Fingerprint → add
+              that person&apos;s finger (right for member 1, left for member 2, etc.).
+            </li>
+            <li>
+              <strong>Member 1:</strong> Register → Attendance → Enroll fingerprint → scan{' '}
+              <em>right hand only</em>.
+            </li>
+            <li>
+              <strong>Member 2:</strong> Register as a <em>new</em> student (not edit member 1) → Enroll
+              fingerprint → scan <em>left hand only</em>.
+            </li>
+            <li>Check-in: quick fingerprint scan; Windows matches the finger to the right member.</li>
+          </ol>
+          <p>
+            Do not enroll two members with the same finger. If you see an error, remove that member&apos;s
+            fingerprint in Attendance and enroll again with the correct hand.
+          </p>
+        </div>
         <button
           type="button"
           className="btn-primary btn-fingerprint"
@@ -383,6 +545,36 @@ export default function StudentsDashboard() {
               </label>
             </div>
 
+            {!editingId && (
+              <>
+                <label>
+                  Check-in PIN (optional)
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="new-password"
+                    maxLength={6}
+                    placeholder="4–6 digits"
+                    value={form.pin}
+                    onChange={(e) => setForm((f) => ({ ...f, pin: e.target.value.replace(/\D/g, '') }))}
+                    disabled={saving || !setPinOnSave}
+                  />
+                </label>
+                <label className="fingerprint-opt-in">
+                  <input
+                    type="checkbox"
+                    checked={setPinOnSave}
+                    onChange={(e) => setSetPinOnSave(e.target.checked)}
+                    disabled={saving}
+                  />
+                  <span>
+                    <strong>Save PIN for quick check-in</strong>
+                    <small>Members can enter their PIN at the door instead of selecting their name.</small>
+                  </span>
+                </label>
+              </>
+            )}
+
             {showFingerprintOnSave && (
               <label className="fingerprint-opt-in">
                 <input
@@ -392,12 +584,8 @@ export default function StudentsDashboard() {
                   disabled={!fingerprintReady || saving}
                 />
                 <span>
-                  <strong>Enroll fingerprint now</strong>
-                  <small>
-                    {fingerprintReady
-                      ? 'Needed for scan-to-check-in. Windows Hello will prompt right after you save.'
-                      : 'Set up Windows Hello fingerprint on this PC to enable.'}
-                  </small>
+                  <strong>Also enroll Windows Hello fingerprint</strong>
+                  <small>Optional — only works for fingers registered in Windows Settings on this PC.</small>
                 </span>
               </label>
             )}
@@ -447,9 +635,11 @@ export default function StudentsDashboard() {
                       Age {student.age} · Joined {formatDate(student.entryDate)}
                     </span>
                     <span className="students-list__meta">
+                      ID {student.memberCode}
+                      {student.hasPin ? ' · PIN set' : ''}
+                      {' · '}
                       {student.attendance.length} check-in
                       {student.attendance.length === 1 ? '' : 's'}
-                      {student.fingerprint?.credentialId ? ' · fingerprint enrolled' : ''}
                     </span>
                   </button>
                   <div className="students-list__actions">
@@ -510,7 +700,8 @@ export default function StudentsDashboard() {
               <div className="student-profile">
                 <h3>{selected.name}</h3>
                 <p>
-                  Age <strong>{selected.age}</strong> · Entry{' '}
+                  Member ID <strong className="member-code">{selected.memberCode}</strong> · Age{' '}
+                  <strong>{selected.age}</strong> · Entry{' '}
                   <strong>{formatDate(selected.entryDate)}</strong>
                 </p>
                 <p className="student-profile__timestamps">
@@ -521,9 +712,45 @@ export default function StudentsDashboard() {
                 </p>
               </div>
 
+              <div className="member-pin-panel">
+                <div>
+                  <strong>Check-in PIN</strong>
+                  <p>
+                    {selected.hasPin
+                      ? 'PIN is set. Member can use it at quick check-in.'
+                      : 'No PIN yet — set one for faster check-in at the door.'}
+                  </p>
+                </div>
+                <form className="member-pin-form" onSubmit={handleSetPin}>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="new-password"
+                    maxLength={6}
+                    placeholder="New PIN (4–6 digits)"
+                    value={pinEdit}
+                    onChange={(e) => setPinEdit(e.target.value.replace(/\D/g, ''))}
+                    disabled={saving || !api}
+                  />
+                  <button type="submit" className="btn-primary btn-primary--compact" disabled={saving || !api}>
+                    {selected.hasPin ? 'Update PIN' : 'Set PIN'}
+                  </button>
+                  {selected.hasPin ? (
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={handleClearPin}
+                      disabled={saving || !api}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </form>
+              </div>
+
               <div className="fingerprint-enroll">
                 <div>
-                  <strong>Fingerprint</strong>
+                  <strong>Fingerprint (optional)</strong>
                   <p>
                     {selected.fingerprint?.credentialId
                       ? `Enrolled ${formatTimestamp(selected.fingerprint.enrolledAt)}`
@@ -563,7 +790,7 @@ export default function StudentsDashboard() {
                       <div className="attendance-list__body">
                         <strong>{formatTimestamp(record.checkedInAt)}</strong>
                         <span className="attendance-method">
-                          {record.method === 'fingerprint' ? 'Fingerprint' : 'Manual'}
+                          {formatCheckInMethod(record.method)}
                         </span>
                       </div>
                       <button

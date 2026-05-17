@@ -29,7 +29,7 @@ function loadAppIcon() {
 
 async function loadMainWindow() {
   if (isDev) {
-    await mainWindow.loadURL('http://127.0.0.1:5173');
+    await mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
     return;
   }
