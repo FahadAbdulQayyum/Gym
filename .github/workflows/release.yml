@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
           $version = (Get-Content package.json | ConvertFrom-Json).version
