@@ -108,9 +108,9 @@ export default function App() {
         <img src={icon} alt="Gym" className="logo" />
         <div className="header-text">
           <h1>Gym</h1>
-          <p className="subtitle">Track today&apos;s workout with clarity</p>
+          <p className="subtitle">Seamless updates — welcome to v1.0.3</p>
         </div>
-        <span className="header-badge">Session</span>
+        <span className="header-badge">Updated</span>
       </header>
 
       <main className="main">
