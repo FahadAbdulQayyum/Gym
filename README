@@ -1,0 +1,103 @@
+# Gym
+
+A lightweight Windows desktop application for tracking daily workouts. Built with **Electron** and **React** (Vite).
+
+## Overview
+
+Gym lets you add exercises, view your plan for the day, and remove entries from a simple, dark-themed interface. The app uses your custom dumbbell icon in the window and installer.
+
+## Tech stack
+
+- **Electron** — desktop shell and packaging
+- **React 18** — user interface
+- **Vite** — development server and production build
+- **electron-builder** — Windows installer (NSIS)
+
+## Project structure
+
+| Path | Description |
+|------|-------------|
+| `assets/icon.png` | Application icon (sourced from `dumble.png`) |
+| `electron/main.js` | Electron main process |
+| `electron/preload.js` | Secure bridge to the renderer |
+| `src/` | React application source |
+| `dist/` | Production web build (generated) |
+| `release/` | Packaged installer and binaries (generated) |
+
+## Prerequisites
+
+Install the following once on your machine:
+
+1. **[Node.js LTS](https://nodejs.org)** (includes npm)
+2. A terminal (**PowerShell** or **Command Prompt**)
+
+Clone or open the project, then navigate to the project directory:
+
+```powershell
+cd C:\Users\User\Desktop\software\Gym
+```
+
+## Development
+
+Install dependencies and start the app in development mode (hot reload enabled):
+
+```powershell
+npm install
+npm run dev
+```
+
+## Building the installer
+
+From the project root:
+
+```powershell
+npm install
+npm run dist
+```
+
+When the build completes, artifacts are written to the `release/` folder:
+
+| Artifact | Path |
+|----------|------|
+| Windows installer | `release\Gym Setup 1.0.0.exe` |
+| Portable executable | `release\win-unpacked\Gym.exe` |
+
+The portable executable runs without installation and is useful for quick testing.
+
+## Installing on Windows
+
+1. Open `release\` in File Explorer.
+2. Run **`Gym Setup 1.0.0.exe`**.
+3. If **Windows SmartScreen** blocks the installer (“Windows protected your PC”):
+   - Select **More info** → **Run anyway**  
+   This prompt is expected for applications that are not digitally signed.
+4. Complete the installer (choose an install location or accept the default).
+5. Launch **Gym** from the Start menu or desktop shortcut.
+
+### Uninstalling
+
+**Settings** → **Apps** → **Installed apps** → **Gym** → **Uninstall**
+
+## Troubleshooting
+
+### Build fails with symlink or privilege errors
+
+If `npm run dist` reports errors related to **symbolic links** or **insufficient privileges**:
+
+- Enable **Developer Mode**: **Settings** → **System** → **For developers** → **Developer Mode** → **On**, then run `npm run dist` again, **or**
+- Open PowerShell **as Administrator** and run `npm run dist` again.
+
+Code signing is disabled in this project (`signAndEditExecutable: false`, `CSC_IDENTITY_AUTO_DISCOVERY=false`) to simplify local builds.
+
+## Command reference
+
+| Task | Command |
+|------|---------|
+| Install dependencies | `npm install` |
+| Development mode | `npm run dev` |
+| Production web build | `npm run build` |
+| Build Windows installer | `npm run dist` |
+
+## License
+
+Private project. All rights reserved.
