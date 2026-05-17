@@ -101,3 +101,10 @@ Code signing is disabled in this project (`signAndEditExecutable: false`, `CSC_I
 ## License
 
 Private project. All rights reserved.
+
+
+Upload to GitHub
+https://github.com/FahadAbdulQayyum/Gym/releases/new
+Tag: v1.1.0
+Upload all 3 files from release-upload\
+Publish release
