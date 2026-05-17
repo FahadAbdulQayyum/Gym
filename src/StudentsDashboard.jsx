@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import {
+  enrollFingerprint,
+  isFingerprintAvailable,
+  verifyAnyEnrolledFingerprint,
+  verifyFingerprint,
+} from './fingerprint';
 import './StudentsDashboard.css';
 
 function todayInputValue() {
@@ -39,8 +45,14 @@ export default function StudentsDashboard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [fingerprintReady, setFingerprintReady] = useState(false);
 
   const api = window.gymApp?.students;
+
+  useEffect(() => {
+    isFingerprintAvailable().then(setFingerprintReady);
+  }, []);
 
   const loadStudents = useCallback(async () => {
     if (!api?.list) {
@@ -130,16 +142,111 @@ export default function StudentsDashboard() {
     }
   }
 
-  async function handleCheckIn() {
+  function clearMessages() {
+    setError('');
+    setSuccess('');
+  }
+
+  async function handleCheckIn(method = 'manual') {
     if (!api || !selected) return;
 
     setSaving(true);
-    setError('');
+    clearMessages();
     try {
-      await api.checkIn(selected.id);
+      await api.checkIn(selected.id, method);
+      setSuccess(
+        method === 'fingerprint'
+          ? `${selected.name} checked in with fingerprint.`
+          : `${selected.name} checked in.`
+      );
       await loadStudents();
     } catch (err) {
       setError(err.message ?? 'Failed to record attendance');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleEnrollFingerprint() {
+    if (!api || !selected) return;
+    if (!fingerprintReady) {
+      setError('Fingerprint reader is not available. Set up Windows Hello on this PC.');
+      return;
+    }
+
+    setSaving(true);
+    clearMessages();
+    try {
+      const credentialId = await enrollFingerprint(selected);
+      await api.registerFingerprint(selected.id, credentialId);
+      setSuccess(`Fingerprint enrolled for ${selected.name}.`);
+      await loadStudents();
+    } catch (err) {
+      setError(err.message ?? 'Failed to enroll fingerprint');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleClearFingerprint() {
+    if (!api || !selected) return;
+    const confirmed = window.confirm(`Remove fingerprint enrollment for ${selected.name}?`);
+    if (!confirmed) return;
+
+    clearMessages();
+    try {
+      await api.clearFingerprint(selected.id);
+      setSuccess(`Fingerprint removed for ${selected.name}.`);
+      await loadStudents();
+    } catch (err) {
+      setError(err.message ?? 'Failed to remove fingerprint');
+    }
+  }
+
+  async function handleFingerprintCheckInForSelected() {
+    if (!api || !selected?.fingerprint?.credentialId) return;
+
+    setSaving(true);
+    clearMessages();
+    try {
+      const verifiedId = await verifyFingerprint(selected.fingerprint.credentialId);
+      if (verifiedId !== selected.fingerprint.credentialId) {
+        throw new Error('Fingerprint does not match this student');
+      }
+      await api.checkIn(selected.id, 'fingerprint');
+      setSuccess(`${selected.name} checked in with fingerprint.`);
+      await loadStudents();
+    } catch (err) {
+      setError(err.message ?? 'Fingerprint check-in failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleQuickFingerprintCheckIn() {
+    if (!api) return;
+    if (!fingerprintReady) {
+      setError('Fingerprint reader is not available. Set up Windows Hello on this PC.');
+      return;
+    }
+
+    const enrolled = students.filter((s) => s.fingerprint?.credentialId);
+    if (enrolled.length === 0) {
+      setError('No students have enrolled fingerprints yet.');
+      return;
+    }
+
+    setSaving(true);
+    clearMessages();
+    try {
+      const credentialIds = enrolled.map((s) => s.fingerprint.credentialId);
+      const verifiedId = await verifyAnyEnrolledFingerprint(credentialIds);
+      const result = await api.checkInByFingerprint(verifiedId);
+      setSuccess(`${result.student.name} checked in with fingerprint.`);
+      setSelectedId(result.student.id);
+      await loadStudents();
+    } catch (err) {
+      setError(err.message ?? 'Fingerprint check-in failed');
     } finally {
       setSaving(false);
     }
@@ -164,6 +271,32 @@ export default function StudentsDashboard() {
           {error}
         </div>
       )}
+
+      {success && (
+        <div className="students-success" role="status">
+          {success}
+        </div>
+      )}
+
+      <section className="card fingerprint-quick-card">
+        <div className="card-header">
+          <h2>Fingerprint check-in</h2>
+          <span className={`fingerprint-status ${fingerprintReady ? 'is-ready' : ''}`}>
+            {fingerprintReady ? 'Windows Hello ready' : 'Not available'}
+          </span>
+        </div>
+        <p className="fingerprint-quick-card__hint">
+          Scan an enrolled fingerprint to check in instantly — no need to select a student first.
+        </p>
+        <button
+          type="button"
+          className="btn-primary btn-fingerprint"
+          onClick={handleQuickFingerprintCheckIn}
+          disabled={saving || !api || !fingerprintReady}
+        >
+          Scan fingerprint to check in
+        </button>
+      </section>
 
       <div className="students-layout">
         <section className="card students-form-card">
@@ -247,6 +380,7 @@ export default function StudentsDashboard() {
                     <span className="students-list__meta">
                       {student.attendance.length} check-in
                       {student.attendance.length === 1 ? '' : 's'}
+                      {student.fingerprint?.credentialId ? ' · fingerprint enrolled' : ''}
                     </span>
                   </button>
                   <div className="students-list__actions">
@@ -274,17 +408,29 @@ export default function StudentsDashboard() {
         </section>
 
         <section className="card students-detail-card">
-          <div className="card-header">
+          <div className="card-header card-header--wrap">
             <h2>Attendance</h2>
             {selected && (
-              <button
-                type="button"
-                className="btn-primary btn-primary--compact"
-                onClick={handleCheckIn}
-                disabled={saving || !api}
-              >
-                Check in now
-              </button>
+              <div className="attendance-actions">
+                <button
+                  type="button"
+                  className="btn-primary btn-primary--compact"
+                  onClick={() => handleCheckIn('manual')}
+                  disabled={saving || !api}
+                >
+                  Manual check-in
+                </button>
+                {selected.fingerprint?.credentialId ? (
+                  <button
+                    type="button"
+                    className="btn-primary btn-primary--compact btn-fingerprint"
+                    onClick={handleFingerprintCheckInForSelected}
+                    disabled={saving || !api || !fingerprintReady}
+                  >
+                    Fingerprint check-in
+                  </button>
+                ) : null}
+              </div>
             )}
           </div>
 
@@ -306,8 +452,40 @@ export default function StudentsDashboard() {
                 </p>
               </div>
 
+              <div className="fingerprint-enroll">
+                <div>
+                  <strong>Fingerprint</strong>
+                  <p>
+                    {selected.fingerprint?.credentialId
+                      ? `Enrolled ${formatTimestamp(selected.fingerprint.enrolledAt)}`
+                      : 'Not enrolled — link this member to Windows Hello.'}
+                  </p>
+                </div>
+                <div className="fingerprint-enroll__actions">
+                  {selected.fingerprint?.credentialId ? (
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={handleClearFingerprint}
+                      disabled={saving || !api}
+                    >
+                      Remove fingerprint
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-primary btn-primary--compact btn-fingerprint"
+                      onClick={handleEnrollFingerprint}
+                      disabled={saving || !api || !fingerprintReady}
+                    >
+                      Enroll fingerprint
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {selected.attendance.length === 0 ? (
-                <p className="empty">No check-ins yet. Use “Check in now” to record attendance.</p>
+                <p className="empty">No check-ins yet. Use manual or fingerprint check-in.</p>
               ) : (
                 <ul className="attendance-list">
                   {selected.attendance.map((record, index) => (
@@ -315,7 +493,9 @@ export default function StudentsDashboard() {
                       <div className="attendance-list__index">#{selected.attendance.length - index}</div>
                       <div className="attendance-list__body">
                         <strong>{formatTimestamp(record.checkedInAt)}</strong>
-                        <span>ID {record.id.slice(0, 8)}…</span>
+                        <span className="attendance-method">
+                          {record.method === 'fingerprint' ? 'Fingerprint' : 'Manual'}
+                        </span>
                       </div>
                       <button
                         type="button"

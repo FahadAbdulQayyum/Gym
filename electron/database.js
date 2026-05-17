@@ -44,11 +44,14 @@ class StudentDatabase {
   }
 
   listStudents() {
-    return [...this.data.students].sort((a, b) => a.name.localeCompare(b.name));
+    return [...this.data.students]
+      .map((student) => this.normalizeStudent(student))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   getStudent(id) {
-    return this.data.students.find((s) => s.id === id) ?? null;
+    const student = this.data.students.find((s) => s.id === id);
+    return student ? this.normalizeStudent(student) : null;
   }
 
   validateStudentInput({ name, age, entryDate }) {
@@ -83,6 +86,7 @@ class StudentDatabase {
       ...fields,
       createdAt: timestamp,
       updatedAt: timestamp,
+      fingerprint: null,
       attendance: [],
     };
 
@@ -114,7 +118,19 @@ class StudentDatabase {
     return removed;
   }
 
-  async checkIn(studentId) {
+  normalizeStudent(student) {
+    if (!student.fingerprint) {
+      student.fingerprint = null;
+    }
+    for (const record of student.attendance) {
+      if (!record.method) {
+        record.method = 'manual';
+      }
+    }
+    return student;
+  }
+
+  async checkIn(studentId, method = 'manual') {
     const student = this.getStudent(studentId);
     if (!student) {
       throw new Error('Student not found');
@@ -123,12 +139,68 @@ class StudentDatabase {
     const record = {
       id: newId(),
       checkedInAt: nowIso(),
+      method: method === 'fingerprint' ? 'fingerprint' : 'manual',
     };
 
     student.attendance.unshift(record);
     student.updatedAt = nowIso();
     await this.save();
-    return { student, record };
+    return { student: this.normalizeStudent(student), record };
+  }
+
+  findStudentByCredentialId(credentialId) {
+    const match = this.data.students.find(
+      (student) => student.fingerprint?.credentialId === credentialId
+    );
+    return match ? this.normalizeStudent(match) : null;
+  }
+
+  async registerFingerprint(studentId, credentialId) {
+    const student = this.getStudent(studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    const trimmed = String(credentialId ?? '').trim();
+    if (!trimmed) {
+      throw new Error('Invalid fingerprint credential');
+    }
+
+    const duplicate = this.data.students.find(
+      (entry) => entry.id !== studentId && entry.fingerprint?.credentialId === trimmed
+    );
+    if (duplicate) {
+      throw new Error(`This fingerprint is already enrolled for ${duplicate.name}`);
+    }
+
+    student.fingerprint = {
+      credentialId: trimmed,
+      enrolledAt: nowIso(),
+    };
+    student.updatedAt = nowIso();
+    await this.save();
+    return this.normalizeStudent(student);
+  }
+
+  async clearFingerprint(studentId) {
+    const student = this.getStudent(studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    student.fingerprint = null;
+    student.updatedAt = nowIso();
+    await this.save();
+    return this.normalizeStudent(student);
+  }
+
+  async checkInByFingerprint(credentialId) {
+    const student = this.findStudentByCredentialId(credentialId);
+    if (!student) {
+      throw new Error('Fingerprint is not enrolled for any student');
+    }
+
+    return this.checkIn(student.id, 'fingerprint');
   }
 
   async deleteAttendance(studentId, attendanceId) {
@@ -180,9 +252,24 @@ function registerDatabaseHandlers(ipcMain) {
     return database.deleteStudent(id);
   });
 
-  ipcMain.handle('db:attendance:check-in', async (_event, { studentId }) => {
+  ipcMain.handle('db:attendance:check-in', async (_event, { studentId, method }) => {
     const database = await getDatabase();
-    return database.checkIn(studentId);
+    return database.checkIn(studentId, method);
+  });
+
+  ipcMain.handle('db:fingerprint:register', async (_event, { studentId, credentialId }) => {
+    const database = await getDatabase();
+    return database.registerFingerprint(studentId, credentialId);
+  });
+
+  ipcMain.handle('db:fingerprint:clear', async (_event, { studentId }) => {
+    const database = await getDatabase();
+    return database.clearFingerprint(studentId);
+  });
+
+  ipcMain.handle('db:attendance:check-in-fingerprint', async (_event, { credentialId }) => {
+    const database = await getDatabase();
+    return database.checkInByFingerprint(credentialId);
   });
 
   ipcMain.handle('db:attendance:delete', async (_event, { studentId, attendanceId }) => {

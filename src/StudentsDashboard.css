@@ -5,6 +5,16 @@
   min-height: 0;
 }
 
+.students-success {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(104, 211, 145, 0.35);
+  background: rgba(26, 51, 40, 0.65);
+  color: #9ae6b4;
+  font-size: 0.9rem;
+}
+
 .students-error {
   margin-bottom: 16px;
   padding: 12px 16px;
@@ -233,4 +243,88 @@
 
 .students-detail-card {
   min-height: 280px;
+}
+
+.fingerprint-quick-card {
+  margin-bottom: 20px;
+}
+
+.fingerprint-quick-card__hint {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.fingerprint-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #f6ad55;
+  background: rgba(246, 173, 85, 0.12);
+  border: 1px solid rgba(246, 173, 85, 0.3);
+}
+
+.fingerprint-status.is-ready {
+  color: #68d391;
+  background: var(--accent-soft);
+  border-color: rgba(104, 211, 145, 0.35);
+}
+
+.btn-fingerprint {
+  background: linear-gradient(135deg, #4fd1c5 0%, #38b2ac 100%) !important;
+  box-shadow: 0 4px 16px rgba(56, 178, 172, 0.35) !important;
+}
+
+.fingerprint-enroll {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(8, 12, 16, 0.45);
+}
+
+.fingerprint-enroll strong {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.fingerprint-enroll p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.fingerprint-enroll__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.card-header--wrap {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attendance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attendance-method {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem !important;
+  font-family: inherit !important;
+  color: var(--accent) !important;
+  background: var(--accent-soft);
 }

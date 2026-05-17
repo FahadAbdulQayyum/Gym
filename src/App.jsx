@@ -79,7 +79,7 @@ export default function App() {
         <img src={icon} alt="Gym" className="logo" />
         <div className="header-text">
           <h1>Gym</h1>
-          <p className="subtitle">Student records &amp; attendance — saved on this PC</p>
+          <p className="subtitle">Students, attendance &amp; fingerprint check-in</p>
         </div>
         <span className="header-badge">Dashboard</span>
       </header>

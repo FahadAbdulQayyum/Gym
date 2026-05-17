@@ -2,11 +2,13 @@ const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const { setupAutoUpdater } = require('./updater');
 const { registerDatabaseHandlers } = require('./database');
+const { createStaticServer } = require('./static-server');
 
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
 let updater;
+let staticServer;
 
 function getAssetsDir() {
   if (app.isPackaged) {
@@ -25,6 +27,18 @@ function loadAppIcon() {
   return icon.isEmpty() ? undefined : icon;
 }
 
+async function loadMainWindow() {
+  if (isDev) {
+    await mainWindow.loadURL('http://127.0.0.1:5173');
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    return;
+  }
+
+  const distDir = path.join(__dirname, '..', 'dist');
+  staticServer = await createStaticServer(distDir);
+  await mainWindow.loadURL(staticServer.url);
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -40,12 +54,9 @@ function createWindow() {
     },
   });
 
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
-  }
+  loadMainWindow().catch((error) => {
+    console.error('Failed to load app window:', error);
+  });
 
   mainWindow.webContents.on('did-finish-load', () => {
     if (app.isPackaged && !updater) {
@@ -98,4 +109,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   updater?.dispose();
+  if (staticServer?.server) {
+    staticServer.server.close();
+  }
 });

@@ -16,7 +16,14 @@ contextBridge.exposeInMainWorld('gymApp', {
     create: (payload) => ipcRenderer.invoke('db:students:create', payload),
     update: (id, payload) => ipcRenderer.invoke('db:students:update', { id, ...payload }),
     delete: (id) => ipcRenderer.invoke('db:students:delete', { id }),
-    checkIn: (studentId) => ipcRenderer.invoke('db:attendance:check-in', { studentId }),
+    checkIn: (studentId, method) =>
+      ipcRenderer.invoke('db:attendance:check-in', { studentId, method }),
+    checkInByFingerprint: (credentialId) =>
+      ipcRenderer.invoke('db:attendance:check-in-fingerprint', { credentialId }),
+    registerFingerprint: (studentId, credentialId) =>
+      ipcRenderer.invoke('db:fingerprint:register', { studentId, credentialId }),
+    clearFingerprint: (studentId) =>
+      ipcRenderer.invoke('db:fingerprint:clear', { studentId }),
     deleteAttendance: (studentId, attendanceId) =>
       ipcRenderer.invoke('db:attendance:delete', { studentId, attendanceId }),
   },
