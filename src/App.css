@@ -82,24 +82,12 @@
   text-transform: uppercase;
   color: var(--accent);
   background: var(--accent-soft);
-  border: 1px solid rgba(99, 179, 237, 0.25);
-}
-
-.main {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1.05fr;
-  gap: 24px;
-  align-items: start;
+  border: 1px solid rgba(104, 211, 145, 0.25);
 }
 
 @media (max-width: 720px) {
   .app {
     padding: 20px 20px 16px;
-  }
-
-  .main {
-    grid-template-columns: 1fr;
   }
 
   .header-badge {
@@ -198,91 +186,6 @@
   border-color: var(--accent);
   background: rgba(8, 12, 16, 0.85);
   box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.form button[type='submit'] {
-  margin-top: 4px;
-  padding: 13px 20px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #68d391 0%, #48bb78 100%);
-  color: #0a0e12;
-  font-weight: 650;
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(99, 179, 237, 0.35);
-  transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease, filter 0.2s ease;
-}
-
-.form button[type='submit']:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 6px 24px rgba(99, 179, 237, 0.45);
-  transform: translateY(-1px);
-}
-
-.form button[type='submit']:active {
-  transform: translateY(0);
-}
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.list li {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  background: rgba(8, 12, 16, 0.5);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  animation: list-in 0.4s var(--ease-out) both;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s var(--ease-out);
-}
-
-.list li:hover {
-  background: rgba(12, 18, 24, 0.7);
-  border-color: var(--border-strong);
-}
-
-.list-index {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 650;
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.list-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.list li strong {
-  display: block;
-  font-size: 0.98rem;
-  font-weight: 550;
-  letter-spacing: -0.01em;
-}
-
-.list li span {
-  display: block;
-  margin-top: 2px;
-  font-size: 0.84rem;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 .remove {

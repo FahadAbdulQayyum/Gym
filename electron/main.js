@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const { setupAutoUpdater } = require('./updater');
+const { registerDatabaseHandlers } = require('./database');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -26,10 +27,10 @@ function loadAppIcon() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 640,
-    minWidth: 720,
-    minHeight: 520,
+    width: 1100,
+    height: 720,
+    minWidth: 900,
+    minHeight: 600,
     title: 'Gym',
     icon: loadAppIcon(),
     webPreferences: {
@@ -54,6 +55,8 @@ function createWindow() {
 }
 
 function registerIpcHandlers() {
+  registerDatabaseHandlers(ipcMain);
+
   ipcMain.handle('app:get-version', () => app.getVersion());
 
   ipcMain.handle('update:check', () => {

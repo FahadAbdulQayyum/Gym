@@ -11,4 +11,13 @@ contextBridge.exposeInMainWorld('gymApp', {
     ipcRenderer.on('update:status', listener);
     return () => ipcRenderer.removeListener('update:status', listener);
   },
+  students: {
+    list: () => ipcRenderer.invoke('db:students:list'),
+    create: (payload) => ipcRenderer.invoke('db:students:create', payload),
+    update: (id, payload) => ipcRenderer.invoke('db:students:update', { id, ...payload }),
+    delete: (id) => ipcRenderer.invoke('db:students:delete', { id }),
+    checkIn: (studentId) => ipcRenderer.invoke('db:attendance:check-in', { studentId }),
+    deleteAttendance: (studentId, attendanceId) =>
+      ipcRenderer.invoke('db:attendance:delete', { studentId, attendanceId }),
+  },
 });
