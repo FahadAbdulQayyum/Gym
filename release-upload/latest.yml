@@ -1,8 +1,8 @@
-version: 1.2.0
+version: 1.2.1
 files:
-  - url: Gym-Setup-1.2.0.exe
-    sha512: v77fAUp5S7dksOziJ2Q5w58tWQVd7pQ2FahlH97L/1IfvWVkgT67tlkXbWH2fsbbtJtkZGfEUaqvQnMY89GKug==
-    size: 83648909
-path: Gym-Setup-1.2.0.exe
-sha512: v77fAUp5S7dksOziJ2Q5w58tWQVd7pQ2FahlH97L/1IfvWVkgT67tlkXbWH2fsbbtJtkZGfEUaqvQnMY89GKug==
-releaseDate: '2026-05-17T03:55:09.274Z'
+  - url: Gym-Setup-1.2.1.exe
+    sha512: WWLd43q/XMvTS5vXdI7v+aDV3lx/UZGmX2k8zmf1KVu4LtwEClv/46NBYkvBnbmTkacVTHZ6kvvCGHzbEx4hsA==
+    size: 83648897
+path: Gym-Setup-1.2.1.exe
+sha512: WWLd43q/XMvTS5vXdI7v+aDV3lx/UZGmX2k8zmf1KVu4LtwEClv/46NBYkvBnbmTkacVTHZ6kvvCGHzbEx4hsA==
+releaseDate: '2026-05-17T03:58:00.317Z'
