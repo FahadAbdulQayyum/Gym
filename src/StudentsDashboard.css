@@ -245,6 +245,39 @@
   min-height: 280px;
 }
 
+.fingerprint-opt-in {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(79, 209, 197, 0.25);
+  background: rgba(8, 12, 16, 0.45);
+  cursor: pointer;
+}
+
+.fingerprint-opt-in input {
+  margin-top: 4px;
+  width: 18px;
+  height: 18px;
+  accent-color: #4fd1c5;
+  flex-shrink: 0;
+}
+
+.fingerprint-opt-in strong {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+  color: #eef1f4;
+}
+
+.fingerprint-opt-in small {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .fingerprint-quick-card {
   margin-bottom: 20px;
 }

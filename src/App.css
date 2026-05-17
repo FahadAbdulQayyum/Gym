@@ -32,22 +32,33 @@
   border-bottom: 1px solid var(--border);
 }
 
-.logo {
+.logo-wrap {
+  flex-shrink: 0;
   width: 60px;
   height: 60px;
+  padding: 8px;
   border-radius: 16px;
-  object-fit: cover;
+  background: #ffffff;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.06);
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
 }
 
-.logo:hover {
+.logo-wrap:hover {
   transform: translateY(-2px);
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 12px 40px rgba(0, 0, 0, 0.4),
     0 0 24px var(--accent-glow);
+}
+
+.logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .header-text {

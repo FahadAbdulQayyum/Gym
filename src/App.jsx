@@ -76,7 +76,9 @@ export default function App() {
       <UpdateBanner update={update} onInstall={installUpdate} />
 
       <header className="header">
-        <img src={icon} alt="Gym" className="logo" />
+        <div className="logo-wrap">
+          <img src={icon} alt="Gym" className="logo" />
+        </div>
         <div className="header-text">
           <h1>Gym</h1>
           <p className="subtitle">Students, attendance &amp; fingerprint check-in</p>

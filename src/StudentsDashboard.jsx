@@ -47,6 +47,7 @@ export default function StudentsDashboard() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [fingerprintReady, setFingerprintReady] = useState(false);
+  const [enrollFingerprintOnSave, setEnrollFingerprintOnSave] = useState(true);
 
   const api = window.gymApp?.students;
 
@@ -85,6 +86,7 @@ export default function StudentsDashboard() {
   function resetForm() {
     setForm(emptyForm());
     setEditingId(null);
+    setEnrollFingerprintOnSave(true);
   }
 
   function startEdit(student) {
@@ -95,6 +97,13 @@ export default function StudentsDashboard() {
       age: String(student.age),
       entryDate: student.entryDate,
     });
+    setEnrollFingerprintOnSave(!student.fingerprint?.credentialId);
+  }
+
+  async function enrollStudentFingerprint(student) {
+    const credentialId = await enrollFingerprint(student);
+    await api.registerFingerprint(student.id, credentialId);
+    return credentialId;
   }
 
   async function handleSubmit(event) {
@@ -102,7 +111,7 @@ export default function StudentsDashboard() {
     if (!api) return;
 
     setSaving(true);
-    setError('');
+    clearMessages();
 
     try {
       const payload = {
@@ -112,10 +121,37 @@ export default function StudentsDashboard() {
       };
 
       if (editingId) {
-        await api.update(editingId, payload);
+        const updated = await api.update(editingId, payload);
+        setSelectedId(updated.id);
+
+        if (
+          enrollFingerprintOnSave &&
+          fingerprintReady &&
+          !updated.fingerprint?.credentialId
+        ) {
+          await enrollStudentFingerprint(updated);
+          setSuccess(`Updated ${updated.name} and enrolled fingerprint for attendance.`);
+        } else {
+          setSuccess(`Updated ${updated.name}.`);
+        }
       } else {
         const created = await api.create(payload);
         setSelectedId(created.id);
+
+        if (enrollFingerprintOnSave && fingerprintReady) {
+          await enrollStudentFingerprint(created);
+          setSuccess(
+            `Registered ${created.name}. Fingerprint saved — they can check in by scanning at the door.`
+          );
+        } else if (enrollFingerprintOnSave && !fingerprintReady) {
+          setSuccess(
+            `Registered ${created.name}. Enable Windows Hello on this PC, then enroll their fingerprint from the attendance panel.`
+          );
+        } else {
+          setSuccess(
+            `Registered ${created.name}. Enroll their fingerprint later for scan-to-check-in.`
+          );
+        }
       }
 
       resetForm();
@@ -177,8 +213,7 @@ export default function StudentsDashboard() {
     setSaving(true);
     clearMessages();
     try {
-      const credentialId = await enrollFingerprint(selected);
-      await api.registerFingerprint(selected.id, credentialId);
+      await enrollStudentFingerprint(selected);
       setSuccess(`Fingerprint enrolled for ${selected.name}.`);
       await loadStudents();
     } catch (err) {
@@ -187,6 +222,10 @@ export default function StudentsDashboard() {
       setSaving(false);
     }
   }
+
+  const editingStudent = editingId ? students.find((s) => s.id === editingId) : null;
+  const showFingerprintOnSave =
+    !editingId || !editingStudent?.fingerprint?.credentialId;
 
   async function handleClearFingerprint() {
     if (!api || !selected) return;
@@ -343,8 +382,38 @@ export default function StudentsDashboard() {
                 />
               </label>
             </div>
+
+            {showFingerprintOnSave && (
+              <label className="fingerprint-opt-in">
+                <input
+                  type="checkbox"
+                  checked={enrollFingerprintOnSave}
+                  onChange={(e) => setEnrollFingerprintOnSave(e.target.checked)}
+                  disabled={!fingerprintReady || saving}
+                />
+                <span>
+                  <strong>Enroll fingerprint now</strong>
+                  <small>
+                    {fingerprintReady
+                      ? 'Needed for scan-to-check-in. Windows Hello will prompt right after you save.'
+                      : 'Set up Windows Hello fingerprint on this PC to enable.'}
+                  </small>
+                </span>
+              </label>
+            )}
+
             <button type="submit" className="btn-primary" disabled={saving || !api}>
-              {saving ? 'Saving…' : editingId ? 'Update student' : 'Add student'}
+              {saving
+                ? enrollFingerprintOnSave && fingerprintReady && showFingerprintOnSave
+                  ? 'Saving & scanning fingerprint…'
+                  : 'Saving…'
+                : editingId
+                  ? enrollFingerprintOnSave && showFingerprintOnSave && fingerprintReady
+                    ? 'Update & enroll fingerprint'
+                    : 'Update student'
+                  : enrollFingerprintOnSave && fingerprintReady
+                    ? 'Register & enroll fingerprint'
+                    : 'Register student'}
             </button>
           </form>
         </section>
