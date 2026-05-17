@@ -4,14 +4,25 @@
   box-sizing: border-box;
 }
 
+:root {
+  --font-sans: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 body {
   margin: 0;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: #0f1419;
-  color: #e8eaed;
+  font-family: var(--font-sans);
+  background: #080c10;
+  color: #eef1f4;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
+}
+
+::selection {
+  background: rgba(99, 179, 237, 0.35);
+  color: #fff;
 }

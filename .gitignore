@@ -2,6 +2,8 @@ node_modules/
 dist/
 release/
 release-new/
+releasee/
+releasee-new/
 assets/icon.ico
 .DS_Store
 *.log

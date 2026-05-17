@@ -106,47 +106,58 @@ export default function App() {
 
       <header className="header">
         <img src={icon} alt="Gym" className="logo" />
-        <div>
+        <div className="header-text">
           <h1>Gym</h1>
-          <p className="subtitle">Track today&apos;s workout</p>
+          <p className="subtitle">Track today&apos;s workout with clarity</p>
         </div>
+        <span className="header-badge">Session</span>
       </header>
 
       <main className="main">
         <section className="card">
-          <h2>Add exercise</h2>
+          <div className="card-header">
+            <h2>Add exercise</h2>
+          </div>
           <form className="form" onSubmit={addWorkout}>
-            <label>
-              Exercise
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Lat pulldown"
-              />
-            </label>
-            <label>
-              Sets / reps
-              <input
-                type="text"
-                value={sets}
-                onChange={(e) => setSets(e.target.value)}
-                placeholder="e.g. 3 × 12"
-              />
-            </label>
+            <div className="form-row">
+              <label>
+                Exercise
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Lat pulldown"
+                />
+              </label>
+              <label>
+                Sets / reps
+                <input
+                  type="text"
+                  value={sets}
+                  onChange={(e) => setSets(e.target.value)}
+                  placeholder="e.g. 3 × 12"
+                />
+              </label>
+            </div>
             <button type="submit">Add to list</button>
           </form>
         </section>
 
         <section className="card">
-          <h2>Today&apos;s plan</h2>
+          <div className="card-header">
+            <h2>Today&apos;s plan</h2>
+            <span className="card-count">
+              {workouts.length} {workouts.length === 1 ? 'exercise' : 'exercises'}
+            </span>
+          </div>
           {workouts.length === 0 ? (
-            <p className="empty">No exercises yet. Add your first one above.</p>
+            <p className="empty">No exercises yet. Add your first one to begin today&apos;s session.</p>
           ) : (
             <ul className="list">
-              {workouts.map((item) => (
-                <li key={item.id}>
-                  <div>
+              {workouts.map((item, index) => (
+                <li key={item.id} style={{ animationDelay: `${index * 40}ms` }}>
+                  <span className="list-index">{index + 1}</span>
+                  <div className="list-content">
                     <strong>{item.name}</strong>
                     <span>{item.sets}</span>
                   </div>
