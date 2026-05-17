@@ -1,7 +1,11 @@
-const { app, BrowserWindow, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
 const path = require('path');
+const { setupAutoUpdater } = require('./updater');
 
 const isDev = process.env.NODE_ENV === 'development';
+
+let mainWindow;
+let updater;
 
 function getAssetsDir() {
   if (app.isPackaged) {
@@ -21,7 +25,7 @@ function loadAppIcon() {
 }
 
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 640,
     minWidth: 720,
@@ -36,11 +40,36 @@ function createWindow() {
   });
 
   if (isDev) {
-    win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools({ mode: 'detach' });
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (app.isPackaged && !updater) {
+      updater = setupAutoUpdater(mainWindow);
+    }
+  });
+}
+
+function registerIpcHandlers() {
+  ipcMain.handle('app:get-version', () => app.getVersion());
+
+  ipcMain.handle('update:check', () => {
+    if (!updater) return null;
+    return updater.checkForUpdates();
+  });
+
+  ipcMain.handle('update:download', () => {
+    if (!updater) return null;
+    return updater.downloadUpdate();
+  });
+
+  ipcMain.handle('update:install', () => {
+    if (!updater) return;
+    updater.quitAndInstall();
+  });
 }
 
 app.whenReady().then(() => {
@@ -48,6 +77,7 @@ app.whenReady().then(() => {
     app.setAppUserModelId('com.gym.desktop');
   }
 
+  registerIpcHandlers();
   createWindow();
 
   app.on('activate', () => {
@@ -61,4 +91,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  updater?.dispose();
 });

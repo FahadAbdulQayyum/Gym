@@ -9,6 +9,7 @@
     "build": "vite build",
     "generate-icon": "node scripts/generate-icon.js",
     "dist": "npm run generate-icon && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && electron-builder --win",
+    "release": "npm run dist -- --publish always",
     "preview": "vite preview"
   },
   "build": {
@@ -32,9 +33,15 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "FahadAbdulQayyum",
+      "repo": "Gym"
     }
   },
   "dependencies": {
+    "electron-updater": "^6.8.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

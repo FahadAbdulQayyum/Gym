@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import icon from '../assets/icon.png';
 import './App.css';
 
@@ -8,10 +8,72 @@ const INITIAL_WORKOUTS = [
   { id: 3, name: 'Deadlift', sets: '3 × 5' },
 ];
 
+function UpdateBanner({ update, onInstall }) {
+  if (!update || update.status === 'not-available' || update.status === 'checking') {
+    return null;
+  }
+
+  if (update.status === 'error') {
+    return (
+      <div className="update-banner update-banner--error" role="status">
+        <p>Could not check for updates. {update.message}</p>
+      </div>
+    );
+  }
+
+  if (update.status === 'available' || update.status === 'downloading') {
+    const percent =
+      update.status === 'downloading' && update.percent != null
+        ? Math.round(update.percent)
+        : null;
+
+    return (
+      <div className="update-banner" role="status">
+        <p>
+          {percent != null
+            ? `Downloading Gym ${update.version}… ${percent}%`
+            : `Gym ${update.version} is available. Downloading in the background…`}
+        </p>
+        {percent != null && (
+          <div className="update-progress">
+            <div className="update-progress__bar" style={{ width: `${percent}%` }} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (update.status === 'downloaded') {
+    return (
+      <div className="update-banner update-banner--ready" role="status">
+        <p>Gym {update.version} is ready to install.</p>
+        <button type="button" className="update-install" onClick={onInstall}>
+          Restart and update
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function App() {
   const [workouts, setWorkouts] = useState(INITIAL_WORKOUTS);
   const [name, setName] = useState('');
   const [sets, setSets] = useState('');
+  const [appVersion, setAppVersion] = useState('');
+  const [update, setUpdate] = useState(null);
+
+  useEffect(() => {
+    window.gymApp?.getVersion?.().then((version) => {
+      if (version) setAppVersion(version);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!window.gymApp?.onUpdateStatus) return undefined;
+    return window.gymApp.onUpdateStatus(setUpdate);
+  }, []);
 
   function addWorkout(event) {
     event.preventDefault();
@@ -34,8 +96,14 @@ export default function App() {
     setWorkouts((current) => current.filter((item) => item.id !== id));
   }
 
+  function installUpdate() {
+    window.gymApp?.installUpdate?.();
+  }
+
   return (
     <div className="app">
+      <UpdateBanner update={update} onInstall={installUpdate} />
+
       <header className="header">
         <img src={icon} alt="Gym" className="logo" />
         <div>
@@ -98,7 +166,7 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        Running on {window.gymApp?.platform ?? 'desktop'}
+        {appVersion ? `Gym v${appVersion}` : 'Gym'} · {window.gymApp?.platform ?? 'desktop'}
       </footer>
     </div>
   );
