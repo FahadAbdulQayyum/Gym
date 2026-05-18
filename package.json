@@ -12,7 +12,11 @@
     "release": "npm run generate-icon && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && electron-builder --win --publish always",
     "prepare-upload": "node scripts/prepare-release-upload.cjs",
     "dist:upload": "npm run dist && npm run prepare-upload",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server:install": "npm install --prefix server",
+    "server:dev": "npm run server:install && npm run dev --prefix server",
+    "server:start": "npm run server:install && npm start --prefix server",
+    "server:deploy": "firebase deploy --only functions"
   },
   "build": {
     "appId": "com.gym.desktop",

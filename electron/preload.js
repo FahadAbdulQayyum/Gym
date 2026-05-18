@@ -11,6 +11,20 @@ contextBridge.exposeInMainWorld('gymApp', {
     ipcRenderer.on('update:status', listener);
     return () => ipcRenderer.removeListener('update:status', listener);
   },
+  getSyncStatus: () => ipcRenderer.invoke('sync:get-status'),
+  runSync: () => ipcRenderer.invoke('sync:run'),
+  getSyncConfig: () => ipcRenderer.invoke('sync:get-config'),
+  onSyncStatus: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('sync:status', listener);
+    return () => ipcRenderer.removeListener('sync:status', listener);
+  },
+  auth: {
+    login: (username, password) => ipcRenderer.invoke('auth:login', { username, password }),
+    signup: (username, password) => ipcRenderer.invoke('auth:signup', { username, password }),
+    logout: () => ipcRenderer.invoke('auth:logout'),
+    getSession: () => ipcRenderer.invoke('auth:get-session'),
+  },
   students: {
     list: () => ipcRenderer.invoke('db:students:list'),
     create: (payload) => ipcRenderer.invoke('db:students:create', payload),

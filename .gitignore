@@ -1,4 +1,6 @@
 node_modules/
+server/node_modules/
+server/.env
 dist/
 release/
 release-new/
@@ -8,3 +10,6 @@ releasee-new/
 assets/icon.ico
 .DS_Store
 *.log
+.firebase/
+firebase-debug.log
+firebase-debug.*.log

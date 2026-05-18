@@ -1,7 +1,16 @@
 const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const { setupAutoUpdater } = require('./updater');
-const { registerDatabaseHandlers } = require('./database');
+const { registerDatabaseHandlers, getDatabase, setDatabaseHooks } = require('./database');
+const { registerAuthHandlers, getAuth, setAuthHooks } = require('./auth');
+const {
+  setupSync,
+  disposeSync,
+  scheduleSync,
+  recordDeletion,
+  registerSyncHandlers,
+  runSync,
+} = require('./sync');
 const { createStaticServer } = require('./static-server');
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -65,8 +74,16 @@ function createWindow() {
   });
 }
 
+function broadcastSyncStatus(status) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('sync:status', status);
+  }
+}
+
 function registerIpcHandlers() {
+  registerAuthHandlers(ipcMain);
   registerDatabaseHandlers(ipcMain);
+  registerSyncHandlers(ipcMain);
 
   ipcMain.handle('app:get-version', () => app.getVersion());
 
@@ -86,12 +103,31 @@ function registerIpcHandlers() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.gym.desktop');
   }
 
   registerIpcHandlers();
+
+  await getAuth();
+
+  setDatabaseHooks({
+    onPersist: scheduleSync,
+    onDelete: recordDeletion,
+  });
+
+  setAuthHooks({
+    onPersist: scheduleSync,
+    onAccountCreated: (options) => runSync(options),
+  });
+
+  setupSync({
+    getDatabase,
+    getAuth,
+    onStatus: broadcastSyncStatus,
+  });
+
   createWindow();
 
   app.on('activate', () => {
@@ -109,6 +145,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   updater?.dispose();
+  disposeSync();
   if (staticServer?.server) {
     staticServer.server.close();
   }

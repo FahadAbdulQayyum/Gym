@@ -76,9 +76,63 @@ class StudentDatabase {
     }
   }
 
-  async save() {
+  async save({ skipSync = false } = {}) {
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
     await fs.writeFile(this.filePath, JSON.stringify(this.data, null, 2), 'utf8');
+    if (!skipSync) {
+      persistHook?.();
+    }
+  }
+
+  exportStudentsForSync() {
+    return this.data.students.map((student) => structuredClone(student));
+  }
+
+  applySyncMerge(incomingStudents = [], incomingDeletions = []) {
+    let changed = false;
+
+    for (const remote of incomingStudents) {
+      if (!remote?.id || remote.deletedAt) {
+        continue;
+      }
+
+      const local = this.getStudentRecord(remote.id);
+      if (!local) {
+        this.data.students.push(structuredClone(remote));
+        changed = true;
+        continue;
+      }
+
+      if (new Date(remote.updatedAt).getTime() > new Date(local.updatedAt).getTime()) {
+        Object.assign(local, structuredClone(remote));
+        changed = true;
+      }
+    }
+
+    for (const deletion of incomingDeletions) {
+      const id = deletion?.id;
+      const deletedAt = deletion?.deletedAt;
+      if (!id || !deletedAt) {
+        continue;
+      }
+
+      const index = this.data.students.findIndex((student) => student.id === id);
+      if (index === -1) {
+        continue;
+      }
+
+      const local = this.data.students[index];
+      if (new Date(deletedAt).getTime() >= new Date(local.updatedAt).getTime()) {
+        this.data.students.splice(index, 1);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      return this.save({ skipSync: true }).then(() => true);
+    }
+
+    return Promise.resolve(false);
   }
 
   async ensureMemberCodes() {
@@ -172,6 +226,7 @@ class StudentDatabase {
     }
 
     const [removed] = this.data.students.splice(index, 1);
+    deleteHook?.(id);
     await this.save();
     return removed;
   }
@@ -359,6 +414,14 @@ class StudentDatabase {
   }
 }
 
+let persistHook = null;
+let deleteHook = null;
+
+function setDatabaseHooks({ onPersist, onDelete } = {}) {
+  persistHook = onPersist ?? null;
+  deleteHook = onDelete ?? null;
+}
+
 let db;
 
 async function getDatabase() {
@@ -370,70 +433,118 @@ async function getDatabase() {
 }
 
 function registerDatabaseHandlers(ipcMain) {
-  ipcMain.handle('db:students:list', async () => {
-    const database = await getDatabase();
-    return database.listStudents();
-  });
+  const { requireAuthSession } = require('./auth');
 
-  ipcMain.handle('db:students:create', async (_event, payload) => {
-    const database = await getDatabase();
-    return database.createStudent(payload);
-  });
+  function guarded(handler) {
+    return async (...args) => {
+      await requireAuthSession();
+      return handler(...args);
+    };
+  }
 
-  ipcMain.handle('db:students:update', async (_event, { id, ...payload }) => {
-    const database = await getDatabase();
-    return database.updateStudent(id, payload);
-  });
+  ipcMain.handle(
+    'db:students:list',
+    guarded(async () => {
+      const database = await getDatabase();
+      return database.listStudents();
+    })
+  );
 
-  ipcMain.handle('db:students:delete', async (_event, { id }) => {
-    const database = await getDatabase();
-    return database.deleteStudent(id);
-  });
+  ipcMain.handle(
+    'db:students:create',
+    guarded(async (_event, payload) => {
+      const database = await getDatabase();
+      return database.createStudent(payload);
+    })
+  );
 
-  ipcMain.handle('db:attendance:check-in', async (_event, { studentId, method }) => {
-    const database = await getDatabase();
-    return database.checkIn(studentId, method);
-  });
+  ipcMain.handle(
+    'db:students:update',
+    guarded(async (_event, { id, ...payload }) => {
+      const database = await getDatabase();
+      return database.updateStudent(id, payload);
+    })
+  );
 
-  ipcMain.handle('db:fingerprint:register', async (_event, { studentId, credentialId, userHandle }) => {
-    const database = await getDatabase();
-    return database.registerFingerprint(studentId, credentialId, userHandle);
-  });
+  ipcMain.handle(
+    'db:students:delete',
+    guarded(async (_event, { id }) => {
+      const database = await getDatabase();
+      return database.deleteStudent(id);
+    })
+  );
 
-  ipcMain.handle('db:fingerprint:clear', async (_event, { studentId }) => {
-    const database = await getDatabase();
-    return database.clearFingerprint(studentId);
-  });
+  ipcMain.handle(
+    'db:attendance:check-in',
+    guarded(async (_event, { studentId, method }) => {
+      const database = await getDatabase();
+      return database.checkIn(studentId, method);
+    })
+  );
 
-  ipcMain.handle('db:attendance:check-in-fingerprint', async (_event, { credentialId }) => {
-    const database = await getDatabase();
-    return database.checkInByFingerprint(credentialId);
-  });
+  ipcMain.handle(
+    'db:fingerprint:register',
+    guarded(async (_event, { studentId, credentialId, userHandle }) => {
+      const database = await getDatabase();
+      return database.registerFingerprint(studentId, credentialId, userHandle);
+    })
+  );
 
-  ipcMain.handle('db:attendance:delete', async (_event, { studentId, attendanceId }) => {
-    const database = await getDatabase();
-    return database.deleteAttendance(studentId, attendanceId);
-  });
+  ipcMain.handle(
+    'db:fingerprint:clear',
+    guarded(async (_event, { studentId }) => {
+      const database = await getDatabase();
+      return database.clearFingerprint(studentId);
+    })
+  );
 
-  ipcMain.handle('db:pin:set', async (_event, { studentId, pin }) => {
-    const database = await getDatabase();
-    return database.setPin(studentId, pin);
-  });
+  ipcMain.handle(
+    'db:attendance:check-in-fingerprint',
+    guarded(async (_event, { credentialId }) => {
+      const database = await getDatabase();
+      return database.checkInByFingerprint(credentialId);
+    })
+  );
 
-  ipcMain.handle('db:pin:clear', async (_event, { studentId }) => {
-    const database = await getDatabase();
-    return database.clearPin(studentId);
-  });
+  ipcMain.handle(
+    'db:attendance:delete',
+    guarded(async (_event, { studentId, attendanceId }) => {
+      const database = await getDatabase();
+      return database.deleteAttendance(studentId, attendanceId);
+    })
+  );
 
-  ipcMain.handle('db:attendance:check-in-member-code', async (_event, { memberCode }) => {
-    const database = await getDatabase();
-    return database.checkInByMemberCode(memberCode);
-  });
+  ipcMain.handle(
+    'db:pin:set',
+    guarded(async (_event, { studentId, pin }) => {
+      const database = await getDatabase();
+      return database.setPin(studentId, pin);
+    })
+  );
 
-  ipcMain.handle('db:attendance:check-in-pin', async (_event, { pin }) => {
-    const database = await getDatabase();
-    return database.checkInByPin(pin);
-  });
+  ipcMain.handle(
+    'db:pin:clear',
+    guarded(async (_event, { studentId }) => {
+      const database = await getDatabase();
+      return database.clearPin(studentId);
+    })
+  );
+
+  ipcMain.handle(
+    'db:attendance:check-in-member-code',
+    guarded(async (_event, { memberCode }) => {
+      const database = await getDatabase();
+      return database.checkInByMemberCode(memberCode);
+    })
+  );
+
+  ipcMain.handle(
+    'db:attendance:check-in-pin',
+    guarded(async (_event, { pin }) => {
+      const database = await getDatabase();
+      return database.checkInByPin(pin);
+    })
+  );
 }
 
-module.exports = { registerDatabaseHandlers, getDatabase };
+module.exports = { registerDatabaseHandlers, getDatabase, setDatabaseHooks };

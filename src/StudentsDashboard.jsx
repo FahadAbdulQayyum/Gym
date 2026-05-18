@@ -99,6 +99,15 @@ export default function StudentsDashboard() {
     loadStudents();
   }, [loadStudents]);
 
+  useEffect(() => {
+    if (!window.gymApp?.onSyncStatus) return undefined;
+    return window.gymApp.onSyncStatus((status) => {
+      if (status?.merged || status?.status === 'synced') {
+        loadStudents();
+      }
+    });
+  }, [loadStudents]);
+
   const selected = students.find((s) => s.id === selectedId) ?? null;
 
   function resetForm() {

@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "apiUrl": "http://localhost:3847",
+  "apiKey": "change-me-to-match-SYNC_API_KEY-in-server-env",
+  "gymId": "my-gym"
+}
