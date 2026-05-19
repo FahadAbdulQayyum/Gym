@@ -18,10 +18,26 @@ let getAuthRef = null;
 function defaultMeta() {
   return {
     deviceId: crypto.randomUUID(),
-    lastSyncedAt: null,
-    pendingDeletions: [],
+    accounts: {},
+    usersLastSyncedAt: null,
     pendingUserDeletions: [],
   };
+}
+
+function ensureAccountMeta(meta, accountId) {
+  if (!meta.accounts || typeof meta.accounts !== 'object') {
+    meta.accounts = {};
+  }
+  if (!meta.accounts[accountId]) {
+    meta.accounts[accountId] = {
+      lastSyncedAt: null,
+      pendingDeletions: [],
+    };
+  }
+  if (!Array.isArray(meta.accounts[accountId].pendingDeletions)) {
+    meta.accounts[accountId].pendingDeletions = [];
+  }
+  return meta.accounts[accountId];
 }
 
 function setStatus(patch) {
@@ -68,13 +84,31 @@ async function loadConfig() {
 
   const apiUrl = String(config.apiUrl ?? '').trim().replace(/\/$/, '');
   const apiKey = String(config.apiKey ?? '').trim();
-  const gymId = String(config.gymId ?? '').trim();
 
-  if (!apiUrl || !apiKey || !gymId) {
+  if (!apiUrl || !apiKey) {
     return null;
   }
 
-  return { apiUrl, apiKey, gymId };
+  return { apiUrl, apiKey };
+}
+
+async function resolveSyncContext() {
+  const config = await loadConfig();
+  if (!config) {
+    return null;
+  }
+
+  const auth = getAuthRef ? await getAuthRef() : null;
+  const session = auth?.getSession?.() ?? auth?.session ?? null;
+  if (!session?.id) {
+    return null;
+  }
+
+  return {
+    ...config,
+    gymId: session.id,
+    ownerId: session.id,
+  };
 }
 
 async function loadMeta() {
@@ -83,8 +117,11 @@ async function loadMeta() {
   if (!meta.deviceId) {
     meta.deviceId = crypto.randomUUID();
   }
-  if (!Array.isArray(meta.pendingDeletions)) {
-    meta.pendingDeletions = [];
+  if (!meta.accounts || typeof meta.accounts !== 'object') {
+    meta.accounts = {};
+  }
+  if (!Array.isArray(meta.pendingUserDeletions)) {
+    meta.pendingUserDeletions = [];
   }
   return meta;
 }
@@ -132,13 +169,19 @@ function recordsChangedSince(records, sinceIso, ensureIds = []) {
 }
 
 async function recordDeletion(studentId) {
+  const config = await resolveSyncContext();
+  if (!config?.ownerId) {
+    return;
+  }
+
   const meta = await loadMeta();
+  const account = ensureAccountMeta(meta, config.ownerId);
   const deletedAt = new Date().toISOString();
-  const existing = meta.pendingDeletions.find((entry) => entry.id === studentId);
+  const existing = account.pendingDeletions.find((entry) => entry.id === studentId);
   if (existing) {
     existing.deletedAt = deletedAt;
   } else {
-    meta.pendingDeletions.push({ id: studentId, deletedAt });
+    account.pendingDeletions.push({ id: studentId, deletedAt });
   }
   await saveMeta(meta);
   scheduleSync();
@@ -173,7 +216,7 @@ async function runSync(options = {}) {
     return toCloudSyncResult(lastStatus);
   }
 
-  const config = await loadConfig();
+  const config = await resolveSyncContext();
   if (!config) {
     setStatus({ status: 'disabled', configured: false, online: isOnline() });
     return toCloudSyncResult(lastStatus);
@@ -205,10 +248,15 @@ async function runSync(options = {}) {
 
   try {
     const meta = await loadMeta();
-    const localStudents = database.exportStudentsForSync();
-    const changedStudents = recordsChangedSince(localStudents, meta.lastSyncedAt);
+    const account = ensureAccountMeta(meta, config.ownerId);
+    const localStudents = database.exportStudentsForSync(config.ownerId);
+    const changedStudents = recordsChangedSince(localStudents, account.lastSyncedAt);
     const localUsers = auth ? auth.exportUsersForSync() : [];
-    const changedUsers = recordsChangedSince(localUsers, meta.lastSyncedAt, ensureUserIds);
+    const changedUsers = recordsChangedSince(
+      localUsers,
+      meta.usersLastSyncedAt,
+      ensureUserIds
+    );
 
     const response = await fetchWithTimeout(`${config.apiUrl}/api/sync`, {
       method: 'POST',
@@ -219,9 +267,9 @@ async function runSync(options = {}) {
       body: JSON.stringify({
         gymId: config.gymId,
         deviceId: meta.deviceId,
-        since: meta.lastSyncedAt,
+        since: account.lastSyncedAt,
         students: changedStudents,
-        deletions: meta.pendingDeletions,
+        deletions: account.pendingDeletions,
         users: changedUsers,
         userDeletions: meta.pendingUserDeletions ?? [],
       }),
@@ -233,19 +281,24 @@ async function runSync(options = {}) {
     }
 
     const payload = await response.json();
-    const studentsMerged = await database.applySyncMerge(payload.students, payload.deletions);
+    const studentsMerged = await database.applySyncMerge(
+      payload.students,
+      payload.deletions,
+      config.ownerId
+    );
     const usersMerged = auth
       ? await auth.applySyncMerge(payload.users, payload.userDeletions)
       : false;
     const merged = studentsMerged || usersMerged;
 
-    meta.lastSyncedAt = payload.serverTime || new Date().toISOString();
-    meta.pendingDeletions = meta.pendingDeletions.filter(
+    account.lastSyncedAt = payload.serverTime || new Date().toISOString();
+    account.pendingDeletions = account.pendingDeletions.filter(
       (pending) =>
         !payload.deletions?.some(
           (remote) => remote.id === pending.id && remote.deletedAt >= pending.deletedAt
         )
     );
+    meta.usersLastSyncedAt = payload.serverTime || new Date().toISOString();
     if (Array.isArray(meta.pendingUserDeletions)) {
       meta.pendingUserDeletions = meta.pendingUserDeletions.filter(
         (pending) =>
@@ -260,7 +313,7 @@ async function runSync(options = {}) {
       status: 'synced',
       configured: true,
       online: true,
-      lastSyncedAt: meta.lastSyncedAt,
+      lastSyncedAt: account.lastSyncedAt,
       merged,
       message: merged ? 'Cloud sync updated local data' : 'Up to date',
     });
@@ -304,11 +357,13 @@ function setupSync({ getDatabase, getAuth, onStatus }) {
   notifyStatus = onStatus;
 
   loadConfig()
-    .then((config) => {
+    .then(async (baseConfig) => {
+      const syncContext = baseConfig ? await resolveSyncContext() : null;
       setStatus({
-        status: config ? 'idle' : 'disabled',
-        configured: Boolean(config),
+        status: syncContext ? 'idle' : baseConfig ? 'disabled' : 'disabled',
+        configured: Boolean(baseConfig),
         online: isOnline(),
+        message: baseConfig && !syncContext ? 'Sign in to sync your account data' : undefined,
       });
     })
     .catch((error) => console.error('Failed to load sync config:', error));
@@ -343,9 +398,13 @@ function registerSyncHandlers(ipcMain) {
   ipcMain.handle('sync:get-status', () => lastStatus);
   ipcMain.handle('sync:run', () => runSync());
   ipcMain.handle('sync:get-config', async () => {
-    const config = await loadConfig();
+    const config = await resolveSyncContext();
     if (!config) {
-      return { enabled: false };
+      const baseConfig = await loadConfig();
+      if (!baseConfig) {
+        return { enabled: false };
+      }
+      return { enabled: true, apiUrl: baseConfig.apiUrl, gymId: null };
     }
     return {
       enabled: true,

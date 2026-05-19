@@ -110,7 +110,9 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers();
 
-  await getAuth();
+  const auth = await getAuth();
+  const database = await getDatabase();
+  await database.migrateOrphanStudents(auth.data.users);
 
   setDatabaseHooks({
     onPersist: scheduleSync,

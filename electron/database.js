@@ -23,6 +23,22 @@ function generateMemberCode(students) {
   throw new Error('Could not generate a unique member ID');
 }
 
+function resolveOrphanOwnerId(users = []) {
+  if (users.length === 1) {
+    return users[0].id;
+  }
+
+  const admin = users.find((user) => user.username === 'admin');
+  if (admin?.id) {
+    return admin.id;
+  }
+
+  const sorted = [...users].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+  return sorted[0]?.id ?? null;
+}
+
 function hashPin(pin) {
   const salt = crypto.randomBytes(16);
   const hash = crypto.pbkdf2Sync(String(pin), salt, 120000, 32, 'sha256');
@@ -84,11 +100,32 @@ class StudentDatabase {
     }
   }
 
-  exportStudentsForSync() {
-    return this.data.students.map((student) => structuredClone(student));
+  studentsForOwner(ownerId) {
+    return this.data.students.filter((student) => student.ownerId === ownerId);
   }
 
-  applySyncMerge(incomingStudents = [], incomingDeletions = []) {
+  async migrateOrphanStudents(users = []) {
+    const orphans = this.data.students.filter((student) => !student.ownerId);
+    if (orphans.length === 0) {
+      return;
+    }
+
+    const defaultOwnerId = resolveOrphanOwnerId(users);
+    if (!defaultOwnerId) {
+      return;
+    }
+
+    for (const student of orphans) {
+      student.ownerId = defaultOwnerId;
+    }
+    await this.save({ skipSync: true });
+  }
+
+  exportStudentsForSync(ownerId) {
+    return this.studentsForOwner(ownerId).map((student) => structuredClone(student));
+  }
+
+  applySyncMerge(incomingStudents = [], incomingDeletions = [], ownerId) {
     let changed = false;
 
     for (const remote of incomingStudents) {
@@ -96,15 +133,22 @@ class StudentDatabase {
         continue;
       }
 
-      const local = this.getStudentRecord(remote.id);
+      if (remote.ownerId && remote.ownerId !== ownerId) {
+        continue;
+      }
+
+      const remoteCopy = structuredClone(remote);
+      remoteCopy.ownerId = ownerId;
+
+      const local = this.getStudentRecord(remote.id, ownerId);
       if (!local) {
-        this.data.students.push(structuredClone(remote));
+        this.data.students.push(remoteCopy);
         changed = true;
         continue;
       }
 
-      if (new Date(remote.updatedAt).getTime() > new Date(local.updatedAt).getTime()) {
-        Object.assign(local, structuredClone(remote));
+      if (new Date(remoteCopy.updatedAt).getTime() > new Date(local.updatedAt).getTime()) {
+        Object.assign(local, remoteCopy);
         changed = true;
       }
     }
@@ -116,7 +160,9 @@ class StudentDatabase {
         continue;
       }
 
-      const index = this.data.students.findIndex((student) => student.id === id);
+      const index = this.data.students.findIndex(
+        (student) => student.id === id && student.ownerId === ownerId
+      );
       if (index === -1) {
         continue;
       }
@@ -137,10 +183,23 @@ class StudentDatabase {
 
   async ensureMemberCodes() {
     let changed = false;
+    const byOwner = new Map();
     for (const student of this.data.students) {
-      if (!student.memberCode) {
-        student.memberCode = generateMemberCode(this.data.students);
-        changed = true;
+      if (!student.ownerId) {
+        continue;
+      }
+      if (!byOwner.has(student.ownerId)) {
+        byOwner.set(student.ownerId, []);
+      }
+      byOwner.get(student.ownerId).push(student);
+    }
+
+    for (const owned of byOwner.values()) {
+      for (const student of owned) {
+        if (!student.memberCode) {
+          student.memberCode = generateMemberCode(owned);
+          changed = true;
+        }
       }
     }
     if (changed) {
@@ -148,18 +207,18 @@ class StudentDatabase {
     }
   }
 
-  listStudents() {
-    return [...this.data.students]
+  listStudents(ownerId) {
+    return this.studentsForOwner(ownerId)
       .map((student) => this.normalizeStudent(student))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  getStudentRecord(id) {
-    return this.data.students.find((s) => s.id === id) ?? null;
+  getStudentRecord(id, ownerId) {
+    return this.data.students.find((s) => s.id === id && s.ownerId === ownerId) ?? null;
   }
 
-  getStudent(id) {
-    const student = this.getStudentRecord(id);
+  getStudent(id, ownerId) {
+    const student = this.getStudentRecord(id, ownerId);
     return student ? this.normalizeStudent(student) : null;
   }
 
@@ -186,14 +245,16 @@ class StudentDatabase {
     };
   }
 
-  async createStudent(payload) {
+  async createStudent(payload, ownerId) {
     const fields = this.validateStudentInput(payload);
     const timestamp = nowIso();
+    const owned = this.studentsForOwner(ownerId);
 
     const student = {
       id: newId(),
+      ownerId,
       ...fields,
-      memberCode: generateMemberCode(this.data.students),
+      memberCode: generateMemberCode(owned),
       createdAt: timestamp,
       updatedAt: timestamp,
       fingerprint: null,
@@ -207,8 +268,8 @@ class StudentDatabase {
     return this.normalizeStudent(student);
   }
 
-  async updateStudent(id, payload) {
-    const student = this.getStudentRecord(id);
+  async updateStudent(id, payload, ownerId) {
+    const student = this.getStudentRecord(id, ownerId);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -219,8 +280,8 @@ class StudentDatabase {
     return this.normalizeStudent(student);
   }
 
-  async deleteStudent(id) {
-    const index = this.data.students.findIndex((s) => s.id === id);
+  async deleteStudent(id, ownerId) {
+    const index = this.data.students.findIndex((s) => s.id === id && s.ownerId === ownerId);
     if (index === -1) {
       throw new Error('Student not found');
     }
@@ -235,8 +296,8 @@ class StudentDatabase {
     if (!student.fingerprint) {
       student.fingerprint = null;
     }
-    if (!student.memberCode) {
-      student.memberCode = generateMemberCode(this.data.students);
+    if (!student.memberCode && student.ownerId) {
+      student.memberCode = generateMemberCode(this.studentsForOwner(student.ownerId));
     }
     for (const record of student.attendance) {
       if (!record.method) {
@@ -250,28 +311,28 @@ class StudentDatabase {
     };
   }
 
-  findStudentByMemberCode(memberCode) {
+  findStudentByMemberCode(memberCode, ownerId) {
     const code = String(memberCode ?? '').trim();
-    const match = this.data.students.find((s) => s.memberCode === code);
+    const match = this.studentsForOwner(ownerId).find((s) => s.memberCode === code);
     return match ? this.normalizeStudent(match) : null;
   }
 
-  findStudentByPin(pin) {
+  findStudentByPin(pin, ownerId) {
     const digits = validatePin(pin);
-    const match = this.data.students.find(
+    const match = this.studentsForOwner(ownerId).find(
       (s) => s.pinHash && s.pinSalt && verifyPin(digits, s.pinSalt, s.pinHash)
     );
     return match ? this.normalizeStudent(match) : null;
   }
 
-  async setPin(studentId, pin) {
-    const student = this.getStudentRecord(studentId);
+  async setPin(studentId, pin, ownerId) {
+    const student = this.getStudentRecord(studentId, ownerId);
     if (!student) {
       throw new Error('Student not found');
     }
 
     const digits = validatePin(pin);
-    const duplicate = this.data.students.find(
+    const duplicate = this.studentsForOwner(ownerId).find(
       (entry) => entry.id !== studentId && entry.pinHash && verifyPin(digits, entry.pinSalt, entry.pinHash)
     );
     if (duplicate) {
@@ -286,8 +347,8 @@ class StudentDatabase {
     return this.normalizeStudent(student);
   }
 
-  async clearPin(studentId) {
-    const student = this.getStudentRecord(studentId);
+  async clearPin(studentId, ownerId) {
+    const student = this.getStudentRecord(studentId, ownerId);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -299,8 +360,8 @@ class StudentDatabase {
     return this.normalizeStudent(student);
   }
 
-  async checkIn(studentId, method = 'manual') {
-    const student = this.getStudentRecord(studentId);
+  async checkIn(studentId, method = 'manual', ownerId) {
+    const student = this.getStudentRecord(studentId, ownerId);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -319,15 +380,15 @@ class StudentDatabase {
     return { student: this.normalizeStudent(student), record };
   }
 
-  findStudentByCredentialId(credentialId) {
-    const match = this.data.students.find(
+  findStudentByCredentialId(credentialId, ownerId) {
+    const match = this.studentsForOwner(ownerId).find(
       (student) => student.fingerprint?.credentialId === credentialId
     );
     return match ? this.normalizeStudent(match) : null;
   }
 
-  async registerFingerprint(studentId, credentialId, userHandle) {
-    const student = this.getStudentRecord(studentId);
+  async registerFingerprint(studentId, credentialId, userHandle, ownerId) {
+    const student = this.getStudentRecord(studentId, ownerId);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -337,7 +398,7 @@ class StudentDatabase {
       throw new Error('Invalid fingerprint credential');
     }
 
-    const duplicate = this.data.students.find(
+    const duplicate = this.studentsForOwner(ownerId).find(
       (entry) => entry.id !== studentId && entry.fingerprint?.credentialId === trimmed
     );
     if (duplicate) {
@@ -359,8 +420,8 @@ class StudentDatabase {
     return this.normalizeStudent(student);
   }
 
-  async clearFingerprint(studentId) {
-    const student = this.getStudentRecord(studentId);
+  async clearFingerprint(studentId, ownerId) {
+    const student = this.getStudentRecord(studentId, ownerId);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -371,33 +432,33 @@ class StudentDatabase {
     return this.normalizeStudent(student);
   }
 
-  async checkInByFingerprint(credentialId) {
-    const student = this.findStudentByCredentialId(credentialId);
+  async checkInByFingerprint(credentialId, ownerId) {
+    const student = this.findStudentByCredentialId(credentialId, ownerId);
     if (!student) {
       throw new Error('Fingerprint is not enrolled for any student');
     }
 
-    return this.checkIn(student.id, 'fingerprint');
+    return this.checkIn(student.id, 'fingerprint', ownerId);
   }
 
-  async checkInByMemberCode(memberCode) {
-    const student = this.findStudentByMemberCode(memberCode);
+  async checkInByMemberCode(memberCode, ownerId) {
+    const student = this.findStudentByMemberCode(memberCode, ownerId);
     if (!student) {
       throw new Error('Member ID not found');
     }
-    return this.checkIn(student.id, 'memberId');
+    return this.checkIn(student.id, 'memberId', ownerId);
   }
 
-  async checkInByPin(pin) {
-    const student = this.findStudentByPin(pin);
+  async checkInByPin(pin, ownerId) {
+    const student = this.findStudentByPin(pin, ownerId);
     if (!student) {
       throw new Error('PIN not recognized');
     }
-    return this.checkIn(student.id, 'pin');
+    return this.checkIn(student.id, 'pin', ownerId);
   }
 
-  async deleteAttendance(studentId, attendanceId) {
-    const student = this.getStudentRecord(studentId);
+  async deleteAttendance(studentId, attendanceId, ownerId) {
+    const student = this.getStudentRecord(studentId, ownerId);
     if (!student) {
       throw new Error('Student not found');
     }
@@ -437,112 +498,112 @@ function registerDatabaseHandlers(ipcMain) {
 
   function guarded(handler) {
     return async (...args) => {
-      await requireAuthSession();
-      return handler(...args);
+      const session = await requireAuthSession();
+      return handler(session, ...args);
     };
   }
 
   ipcMain.handle(
     'db:students:list',
-    guarded(async () => {
+    guarded(async (session) => {
       const database = await getDatabase();
-      return database.listStudents();
+      return database.listStudents(session.id);
     })
   );
 
   ipcMain.handle(
     'db:students:create',
-    guarded(async (_event, payload) => {
+    guarded(async (session, _event, payload) => {
       const database = await getDatabase();
-      return database.createStudent(payload);
+      return database.createStudent(payload, session.id);
     })
   );
 
   ipcMain.handle(
     'db:students:update',
-    guarded(async (_event, { id, ...payload }) => {
+    guarded(async (session, _event, { id, ...payload }) => {
       const database = await getDatabase();
-      return database.updateStudent(id, payload);
+      return database.updateStudent(id, payload, session.id);
     })
   );
 
   ipcMain.handle(
     'db:students:delete',
-    guarded(async (_event, { id }) => {
+    guarded(async (session, _event, { id }) => {
       const database = await getDatabase();
-      return database.deleteStudent(id);
+      return database.deleteStudent(id, session.id);
     })
   );
 
   ipcMain.handle(
     'db:attendance:check-in',
-    guarded(async (_event, { studentId, method }) => {
+    guarded(async (session, _event, { studentId, method }) => {
       const database = await getDatabase();
-      return database.checkIn(studentId, method);
+      return database.checkIn(studentId, method, session.id);
     })
   );
 
   ipcMain.handle(
     'db:fingerprint:register',
-    guarded(async (_event, { studentId, credentialId, userHandle }) => {
+    guarded(async (session, _event, { studentId, credentialId, userHandle }) => {
       const database = await getDatabase();
-      return database.registerFingerprint(studentId, credentialId, userHandle);
+      return database.registerFingerprint(studentId, credentialId, userHandle, session.id);
     })
   );
 
   ipcMain.handle(
     'db:fingerprint:clear',
-    guarded(async (_event, { studentId }) => {
+    guarded(async (session, _event, { studentId }) => {
       const database = await getDatabase();
-      return database.clearFingerprint(studentId);
+      return database.clearFingerprint(studentId, session.id);
     })
   );
 
   ipcMain.handle(
     'db:attendance:check-in-fingerprint',
-    guarded(async (_event, { credentialId }) => {
+    guarded(async (session, _event, { credentialId }) => {
       const database = await getDatabase();
-      return database.checkInByFingerprint(credentialId);
+      return database.checkInByFingerprint(credentialId, session.id);
     })
   );
 
   ipcMain.handle(
     'db:attendance:delete',
-    guarded(async (_event, { studentId, attendanceId }) => {
+    guarded(async (session, _event, { studentId, attendanceId }) => {
       const database = await getDatabase();
-      return database.deleteAttendance(studentId, attendanceId);
+      return database.deleteAttendance(studentId, attendanceId, session.id);
     })
   );
 
   ipcMain.handle(
     'db:pin:set',
-    guarded(async (_event, { studentId, pin }) => {
+    guarded(async (session, _event, { studentId, pin }) => {
       const database = await getDatabase();
-      return database.setPin(studentId, pin);
+      return database.setPin(studentId, pin, session.id);
     })
   );
 
   ipcMain.handle(
     'db:pin:clear',
-    guarded(async (_event, { studentId }) => {
+    guarded(async (session, _event, { studentId }) => {
       const database = await getDatabase();
-      return database.clearPin(studentId);
+      return database.clearPin(studentId, session.id);
     })
   );
 
   ipcMain.handle(
     'db:attendance:check-in-member-code',
-    guarded(async (_event, { memberCode }) => {
+    guarded(async (session, _event, { memberCode }) => {
       const database = await getDatabase();
-      return database.checkInByMemberCode(memberCode);
+      return database.checkInByMemberCode(memberCode, session.id);
     })
   );
 
   ipcMain.handle(
     'db:attendance:check-in-pin',
-    guarded(async (_event, { pin }) => {
+    guarded(async (session, _event, { pin }) => {
       const database = await getDatabase();
-      return database.checkInByPin(pin);
+      return database.checkInByPin(pin, session.id);
     })
   );
 }

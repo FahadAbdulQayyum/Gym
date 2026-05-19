@@ -197,7 +197,7 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
         </div>
       </header>
 
-      <StudentsDashboard />
+      <StudentsDashboard key={session.id} />
 
       <footer className="footer">
         {appVersion ? `Gym v${appVersion}` : 'Gym'} · {window.gymApp?.platform ?? 'desktop'}
