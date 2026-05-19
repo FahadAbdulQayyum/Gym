@@ -1,5 +1,6 @@
 {
   "enabled": true,
   "apiUrl": "http://localhost:3847",
-  "apiKey": "change-me-to-match-SYNC_API_KEY-in-server-env"
+  "apiKey": "change-me-to-match-SYNC_API_KEY-in-server-env",
+  "_note": "Cloud data is stored under your signed-in account ID (not gymId). Copy this file to AppData as gym-sync-config.json."
 }

@@ -129,6 +129,7 @@ class UserDatabase {
       'utf8'
     );
     this.session = this.toPublicUser(user);
+    loginHook?.();
   }
 
   async clearSession() {
@@ -315,10 +316,12 @@ class UserDatabase {
 let authDb;
 let persistHook = null;
 let accountCreatedHook = null;
+let loginHook = null;
 
-function setAuthHooks({ onPersist, onAccountCreated } = {}) {
+function setAuthHooks({ onPersist, onAccountCreated, onLogin } = {}) {
   persistHook = onPersist ?? null;
   accountCreatedHook = onAccountCreated ?? null;
+  loginHook = onLogin ?? null;
 }
 
 async function getAuth() {

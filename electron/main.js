@@ -121,7 +121,8 @@ app.whenReady().then(async () => {
 
   setAuthHooks({
     onPersist: scheduleSync,
-    onAccountCreated: (options) => runSync(options),
+    onAccountCreated: (options) => runSync({ ...options, force: true }),
+    onLogin: scheduleSync,
   });
 
   setupSync({

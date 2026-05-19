@@ -37,7 +37,37 @@ function ensureAccountMeta(meta, accountId) {
   if (!Array.isArray(meta.accounts[accountId].pendingDeletions)) {
     meta.accounts[accountId].pendingDeletions = [];
   }
+
+  if (
+    meta.accounts[accountId].pendingDeletions.length === 0 &&
+    Array.isArray(meta.pendingDeletions) &&
+    meta.pendingDeletions.length > 0
+  ) {
+    meta.accounts[accountId].pendingDeletions = [...meta.pendingDeletions];
+    meta.pendingDeletions = [];
+  }
+
   return meta.accounts[accountId];
+}
+
+function parseErrorMessage(body, status) {
+  const text = String(body ?? '').trim();
+  if (!text) {
+    return `Sync failed (${status})`;
+  }
+  try {
+    const json = JSON.parse(text);
+    return json.error || json.message || text;
+  } catch {
+    return text;
+  }
+}
+
+function studentsForAccountSync(database, accountId) {
+  return database.exportStudentsForSync(accountId).map((student) => ({
+    ...student,
+    ownerId: accountId,
+  }));
 }
 
 function setStatus(patch) {
@@ -78,7 +108,7 @@ function getPaths() {
 async function loadConfig() {
   const { configPath } = getPaths();
   const config = await readJson(configPath, null);
-  if (!config?.enabled) {
+  if (!config || config.enabled === false) {
     return null;
   }
 
@@ -108,6 +138,8 @@ async function resolveSyncContext() {
     ...config,
     gymId: session.id,
     ownerId: session.id,
+    accountId: session.id,
+    username: session.username,
   };
 }
 
@@ -154,7 +186,7 @@ function recordsChangedSince(records, sinceIso, ensureIds = []) {
     changed = [...records];
   } else {
     const sinceMs = new Date(sinceIso).getTime();
-    changed = records.filter((record) => new Date(record.updatedAt).getTime() > sinceMs);
+    changed = records.filter((record) => new Date(record.updatedAt).getTime() >= sinceMs);
   }
 
   const seen = new Set(changed.map((record) => record.id));
@@ -211,14 +243,25 @@ function toCloudSyncResult(status) {
 
 async function runSync(options = {}) {
   const ensureUserIds = options.ensureUserIds ?? [];
+  const force = Boolean(options.force);
 
   if (syncing) {
     return toCloudSyncResult(lastStatus);
   }
 
+  const baseConfig = await loadConfig();
   const config = await resolveSyncContext();
   if (!config) {
-    setStatus({ status: 'disabled', configured: false, online: isOnline() });
+    if (baseConfig) {
+      setStatus({
+        status: 'error',
+        configured: true,
+        online: isOnline(),
+        message: 'Sign in to sync your account data to the cloud',
+      });
+    } else {
+      setStatus({ status: 'disabled', configured: false, online: isOnline() });
+    }
     return toCloudSyncResult(lastStatus);
   }
 
@@ -243,17 +286,21 @@ async function runSync(options = {}) {
     status: 'syncing',
     configured: true,
     online: true,
-    message: 'Syncing with cloud…',
+    accountId: config.accountId,
+    message: 'Syncing your account data with cloud…',
   });
 
   try {
     const meta = await loadMeta();
     const account = ensureAccountMeta(meta, config.ownerId);
-    const localStudents = database.exportStudentsForSync(config.ownerId);
-    const changedStudents = recordsChangedSince(localStudents, account.lastSyncedAt);
+    const localStudents = studentsForAccountSync(database, config.ownerId);
+    const changedStudents = force
+      ? localStudents
+      : recordsChangedSince(localStudents, account.lastSyncedAt);
     const localUsers = auth ? auth.exportUsersForSync() : [];
+    const usersForAccount = localUsers.filter((user) => user.id === config.ownerId);
     const changedUsers = recordsChangedSince(
-      localUsers,
+      usersForAccount,
       meta.usersLastSyncedAt,
       ensureUserIds
     );
@@ -277,7 +324,7 @@ async function runSync(options = {}) {
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(body || `Sync failed (${response.status})`);
+      throw new Error(parseErrorMessage(body, response.status));
     }
 
     const payload = await response.json();
@@ -309,26 +356,38 @@ async function runSync(options = {}) {
     }
     await saveMeta(meta);
 
+    const pushed = changedStudents.length;
+    let message = 'Up to date';
+    if (pushed > 0) {
+      message = `Saved ${pushed} student${pushed === 1 ? '' : 's'} to cloud for this account`;
+    } else if (merged) {
+      message = 'Cloud sync updated local data';
+    }
+
     setStatus({
       status: 'synced',
       configured: true,
       online: true,
       lastSyncedAt: account.lastSyncedAt,
+      accountId: config.accountId,
       merged,
-      message: merged ? 'Cloud sync updated local data' : 'Up to date',
+      pushed,
+      message,
     });
   } catch (error) {
     const offlineLike =
       error.name === 'AbortError' ||
       error.cause?.code === 'ENOTFOUND' ||
-      error.cause?.code === 'ECONNREFUSED';
+      error.cause?.code === 'ECONNREFUSED' ||
+      /fetch failed/i.test(String(error.message));
 
     setStatus({
       status: offlineLike ? 'offline' : 'error',
       configured: true,
       online: isOnline(),
+      accountId: config.accountId,
       message: offlineLike
-        ? 'Offline — changes saved locally'
+        ? 'Cannot reach sync server — changes saved locally'
         : error.message || 'Sync failed',
     });
   } finally {
@@ -395,8 +454,13 @@ function disposeSync() {
 }
 
 function registerSyncHandlers(ipcMain) {
+  const { requireAuthSession } = require('./auth');
+
   ipcMain.handle('sync:get-status', () => lastStatus);
-  ipcMain.handle('sync:run', () => runSync());
+  ipcMain.handle('sync:run', async () => {
+    await requireAuthSession();
+    return runSync({ force: true });
+  });
   ipcMain.handle('sync:get-config', async () => {
     const config = await resolveSyncContext();
     if (!config) {

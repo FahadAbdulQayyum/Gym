@@ -10,7 +10,10 @@ function SyncBanner({ sync, onSyncNow }) {
     return null;
   }
 
-  if (sync.status === 'idle' || (sync.status === 'synced' && !sync.merged)) {
+  if (
+    sync.status === 'idle' ||
+    (sync.status === 'synced' && !sync.merged && !sync.pushed)
+  ) {
     return null;
   }
 
@@ -21,7 +24,7 @@ function SyncBanner({ sync, onSyncNow }) {
         ? sync.message || 'Offline — using local database'
         : sync.status === 'error'
           ? sync.message || 'Cloud sync failed'
-          : sync.status === 'synced' && sync.merged
+          : sync.status === 'synced' && (sync.merged || sync.pushed)
             ? sync.message || 'Cloud sync updated local data'
             : sync.message || 'Cloud sync';
 
@@ -119,7 +122,8 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
     window.gymApp?.getSyncStatus?.().then((status) => {
       if (status) setSync(status);
     });
-  }, []);
+    window.gymApp?.runSync?.().catch(() => {});
+  }, [session.id]);
 
   useEffect(() => {
     if (!window.gymApp?.onUpdateStatus) return undefined;
@@ -185,7 +189,9 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
                 ? 'Add gym-sync-config.json in AppData to enable cloud sync'
                 : offline
                   ? 'No internet — data stays on this PC'
-                  : 'Push and pull students & users from MongoDB'
+                  : sync?.accountId
+                    ? `Sync students for account ${sync.accountId}`
+                    : 'Push and pull students for your signed-in account'
             }
           >
             {syncLabel}

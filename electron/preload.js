@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('gymApp', {
     return () => ipcRenderer.removeListener('update:status', listener);
   },
   getSyncStatus: () => ipcRenderer.invoke('sync:get-status'),
-  runSync: () => ipcRenderer.invoke('sync:run'),
+  runSync: () => ipcRenderer.invoke('sync:run', { force: true }),
   getSyncConfig: () => ipcRenderer.invoke('sync:get-config'),
   onSyncStatus: (callback) => {
     const listener = (_event, payload) => callback(payload);
