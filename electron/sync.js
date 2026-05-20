@@ -186,7 +186,7 @@ function toCloudSyncResult(status) {
   if (!status?.configured) {
     return {
       status: 'disabled',
-      message: 'Cloud sync is not configured. Add gym-sync-config.json in AppData.',
+      message: 'Cloud sync is disabled.',
     };
   }
   if (status.status === 'synced') {

@@ -6,10 +6,11 @@ const cors = require('cors');
 const { MongoClient } = require('mongodb');
 const { version } = require('./package.json');
 const { registerAuthRoutes } = require('./auth');
+const { SYNC_API_KEY: DEFAULT_SYNC_API_KEY } = require('../config/api-defaults.cjs');
 
 const PORT = Number(process.env.PORT) || 3847;
 const MONGODB_DB = process.env.MONGODB_DB || 'gym';
-const SYNC_API_KEY = process.env.SYNC_API_KEY || '';
+const SYNC_API_KEY = process.env.SYNC_API_KEY || DEFAULT_SYNC_API_KEY;
 
 function buildMongoUri() {
   const user = process.env.MONGODB_USER?.trim();

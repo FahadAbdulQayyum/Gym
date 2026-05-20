@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "apiUrl": "http://localhost:3847",
-  "apiKey": "change-me-to-match-SYNC_API_KEY-in-server-env",
-  "_note": "Optional if .env BACKEND_URL + SYNC_API_KEY are set at build time. Copy to %APPDATA%\\Gym\\gym-sync-config.json to override."
+  "apiUrl": "https://gym-server-alpha.vercel.app",
+  "apiKey": "change-me-to-a-long-random-secret",
+  "_note": "Defaults match .env / build-config. Copy to %APPDATA%\\Gym\\gym-sync-config.json only to override."
 }

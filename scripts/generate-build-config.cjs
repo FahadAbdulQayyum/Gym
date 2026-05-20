@@ -1,8 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const defaults = require('../config/api-defaults.cjs');
 
 const root = path.join(__dirname, '..');
 const envPath = path.join(root, '.env');
+const serverEnvPath = path.join(root, 'server', '.env');
 const outPath = path.join(root, 'electron', 'build-config.json');
 
 function parseEnvFile(raw) {
@@ -28,33 +30,36 @@ function parseEnvFile(raw) {
   return values;
 }
 
+function loadEnvFiles() {
+  const merged = {};
+  if (fs.existsSync(serverEnvPath)) {
+    Object.assign(merged, parseEnvFile(fs.readFileSync(serverEnvPath, 'utf8')));
+  }
+  if (fs.existsSync(envPath)) {
+    Object.assign(merged, parseEnvFile(fs.readFileSync(envPath, 'utf8')));
+  }
+  return merged;
+}
+
 function normalizeApiUrl(value) {
-  return String(value ?? '').trim().replace(/\/$/, '');
+  let url = String(value ?? '').trim().replace(/\/$/, '');
+  if (url.endsWith('/api')) {
+    url = url.slice(0, -4);
+    console.warn('BACKEND_URL should not end with /api — trimmed for build config');
+  }
+  return url;
 }
 
-let env = {};
-if (fs.existsSync(envPath)) {
-  env = parseEnvFile(fs.readFileSync(envPath, 'utf8'));
-}
+const env = loadEnvFiles();
+const apiUrl = normalizeApiUrl(
+  env.BACKEND_URL || env.GYM_API_URL || defaults.BACKEND_URL
+);
+const apiKey = String(
+  env.SYNC_API_KEY || env.GYM_API_KEY || defaults.SYNC_API_KEY
+).trim();
 
-const apiUrl = normalizeApiUrl(env.BACKEND_URL || env.GYM_API_URL);
-const apiKey = String(env.SYNC_API_KEY || env.GYM_API_KEY || '').trim();
-
-const config = {};
-if (apiUrl) {
-  config.apiUrl = apiUrl;
-}
-if (apiKey) {
-  config.apiKey = apiKey;
-}
+const config = { apiUrl, apiKey };
 
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
-
-if (apiUrl && apiKey) {
-  console.log(`Wrote build config with apiUrl=${apiUrl}`);
-} else if (apiUrl) {
-  console.warn('Wrote build config with apiUrl only — add SYNC_API_KEY to .env for cloud sign-in');
-} else {
-  console.warn('No BACKEND_URL in .env — cloud sign-in will need gym-sync-config.json in AppData');
-}
+console.log(`Wrote build config with apiUrl=${apiUrl}`);

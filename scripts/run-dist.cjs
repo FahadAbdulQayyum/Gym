@@ -7,15 +7,23 @@ const publish = process.argv.includes('--publish');
 
 require('./pre-dist-clean.cjs');
 
-const lockedUnpacked = path.join(root, 'release', 'win-unpacked', 'resources', 'app.asar');
-let outputDir = 'release';
+function isDirLocked(outputDir) {
+  const asarPath = path.join(root, outputDir, 'win-unpacked', 'resources', 'app.asar');
+  return fs.existsSync(asarPath);
+}
 
-if (fs.existsSync(lockedUnpacked)) {
-  outputDir = 'release-build';
-  console.warn(
-    'release\\win-unpacked is still locked (close File Explorer there, quit Gym, then delete that folder).'
-  );
-  console.warn(`Building to ${outputDir}\\ instead.\n`);
+const candidates = ['release', 'release-build', 'release-new'];
+const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+candidates.push(`release-${stamp}`);
+
+let outputDir = candidates.find((dir) => !isDirLocked(dir));
+if (!outputDir) {
+  outputDir = candidates[candidates.length - 1];
+  console.warn(`All output folders locked — using fresh folder ${outputDir}\\`);
+}
+
+if (outputDir !== 'release') {
+  console.warn(`Building installer to ${outputDir}\\\n`);
 }
 
 const builderArgs = [
@@ -34,8 +42,14 @@ execSync(builderArgs, {
   },
 });
 
+const setupFiles = fs
+  .readdirSync(path.join(root, outputDir))
+  .filter((name) => name.endsWith('.exe') && name.includes('Setup'));
+
+console.log(`\nInstaller ready: ${path.join(outputDir, setupFiles[0] || '(see .exe in folder)')}`);
+
 if (outputDir !== 'release') {
-  const setupGlob = fs.readdirSync(path.join(root, outputDir)).filter((name) => name.endsWith('.exe'));
-  console.warn(`\nInstaller is in ${outputDir}\\ (${setupGlob.join(', ') || 'see folder'})`);
-  console.warn('After reboot, delete the old locked release\\win-unpacked folder.');
+  console.warn(
+    'Close Gym / File Explorer on old release folders, then delete locked release\\ or release-build\\ if you want a clean release\\ path next time.'
+  );
 }

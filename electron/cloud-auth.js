@@ -11,8 +11,19 @@ function parseErrorMessage(body, status) {
     const json = JSON.parse(text);
     return json.error || json.message || text;
   } catch {
-    return text;
+    if (/<!DOCTYPE html>/i.test(text) || /Cannot (GET|POST)/i.test(text)) {
+      return `Cloud server misconfigured (${status}). Check BACKEND_URL and redeploy the API.`;
+    }
+    return text.length > 200 ? `${text.slice(0, 200)}…` : text;
   }
+}
+
+function isCloudMisconfigError(error) {
+  const message = String(error?.message ?? '');
+  return (
+    error?.status === 404 ||
+    /Cannot (GET|POST)|misconfigured|not configured/i.test(message)
+  );
 }
 
 function isNetworkError(error) {
@@ -93,5 +104,6 @@ module.exports = {
   cloudSignup,
   cloudRegister,
   isNetworkError,
+  isCloudMisconfigError,
   canUseCloud,
 };

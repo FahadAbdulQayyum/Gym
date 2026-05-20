@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { app } = require('electron');
+const defaults = require('../config/api-defaults.cjs');
 
 let buildConfigCache = null;
 
@@ -46,11 +47,16 @@ function getPaths() {
 }
 
 function normalizeApiUrl(value) {
-  return String(value ?? '').trim().replace(/\/$/, '');
+  let url = String(value ?? '').trim().replace(/\/$/, '');
+  if (url.endsWith('/api')) {
+    url = url.slice(0, -4);
+  }
+  return url || defaults.BACKEND_URL;
 }
 
 function normalizeApiKey(value) {
-  return String(value ?? '').trim();
+  const key = String(value ?? '').trim();
+  return key || defaults.SYNC_API_KEY;
 }
 
 async function loadApiConfig() {
@@ -63,15 +69,19 @@ async function loadApiConfig() {
   }
 
   const apiUrl = normalizeApiUrl(
-    fileConfig?.apiUrl ?? build.apiUrl ?? process.env.BACKEND_URL ?? process.env.GYM_API_URL
+    fileConfig?.apiUrl ??
+      build.apiUrl ??
+      process.env.BACKEND_URL ??
+      process.env.GYM_API_URL ??
+      defaults.BACKEND_URL
   );
   const apiKey = normalizeApiKey(
-    fileConfig?.apiKey ?? build.apiKey ?? process.env.SYNC_API_KEY ?? process.env.GYM_API_KEY
+    fileConfig?.apiKey ??
+      build.apiKey ??
+      process.env.SYNC_API_KEY ??
+      process.env.GYM_API_KEY ??
+      defaults.SYNC_API_KEY
   );
-
-  if (!apiUrl || !apiKey) {
-    return null;
-  }
 
   return { apiUrl, apiKey, source: fileConfig ? 'user' : 'build' };
 }
@@ -85,10 +95,6 @@ async function ensureUserSyncConfig() {
   const build = await loadBuildConfig();
   const apiUrl = normalizeApiUrl(build.apiUrl);
   const apiKey = normalizeApiKey(build.apiKey);
-
-  if (!apiUrl || !apiKey) {
-    return existing;
-  }
 
   const { configPath } = getPaths();
   const current = await readJson(configPath, null);
@@ -120,4 +126,5 @@ module.exports = {
   loadApiConfig,
   ensureUserSyncConfig,
   readJson,
+  defaults,
 };

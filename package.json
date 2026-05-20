@@ -1,6 +1,6 @@
 {
   "name": "gym-app",
-  "version": "3.4.7",
+  "version": "3.4.8",
   "description": "Simple Gym desktop app",
   "main": "electron/main.js",
   "private": true,
@@ -9,8 +9,8 @@
     "build": "node scripts/generate-build-config.cjs && vite build",
     "generate-icon": "node scripts/generate-icon.js",
     "generate-build-config": "node scripts/generate-build-config.cjs",
-    "dist": "npm run generate-icon && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && node scripts/run-dist.cjs",
-    "release": "npm run generate-icon && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && node scripts/run-dist.cjs --publish",
+    "dist": "npm run generate-icon && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && node scripts/validate-build-config.cjs && node scripts/run-dist.cjs",
+    "release": "npm run generate-icon && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && node scripts/validate-build-config.cjs && node scripts/run-dist.cjs --publish",
     "prepare-upload": "node scripts/prepare-release-upload.cjs",
     "dist:upload": "npm run dist && npm run prepare-upload",
     "preview": "vite preview",
@@ -29,6 +29,7 @@
       "dist/**/*",
       "electron/**/*",
       "electron/build-config.json",
+      "config/**/*",
       "assets/**/*"
     ],
     "icon": "assets/icon.ico",

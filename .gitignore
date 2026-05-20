@@ -4,7 +4,9 @@ server/node_modules/
 server/.env
 dist/
 release/
+release-build/
 release-new/
+release-*/
 release*
 release-upload/
 releasee/
@@ -15,3 +17,6 @@ assets/icon.ico
 .firebase/
 firebase-debug.log
 firebase-debug.*.log
+.env
+.env*
+server/.env*

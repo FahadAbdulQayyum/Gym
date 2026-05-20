@@ -2,7 +2,13 @@ const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
 const { app } = require('electron');
-const { cloudLogin, cloudSignup, cloudRegister, isNetworkError } = require('./cloud-auth');
+const {
+  cloudLogin,
+  cloudSignup,
+  cloudRegister,
+  isNetworkError,
+  isCloudMisconfigError,
+} = require('./cloud-auth');
 const { loadApiConfig } = require('./sync-config');
 
 function newId() {
@@ -281,7 +287,7 @@ class UserDatabase {
         status: 'disabled',
         message: apiConfig
           ? 'Account saved locally while offline. It will upload when you are back online.'
-          : 'Account saved locally. Add BACKEND_URL and SYNC_API_KEY to .env, then rebuild, for cloud sign-in.',
+          : 'Account saved locally while offline. It will sync when you are back online.',
       };
       if (accountCreatedHook) {
         cloudSync = await accountCreatedHook({ ensureUserIds: [user.id] });
@@ -307,9 +313,15 @@ class UserDatabase {
         return this.session;
       } catch (error) {
         if (error.status === 401) {
-          throw new Error('Invalid username or password');
-        }
-        if (!isNetworkError(error) && !error.offline) {
+          const message = String(error.message ?? '');
+          if (/^unauthorized$/i.test(message.trim())) {
+            console.warn('Cloud API key rejected — trying local login');
+          } else {
+            throw new Error('Invalid username or password');
+          }
+        } else if (isCloudMisconfigError(error)) {
+          console.warn('Cloud login unavailable:', error.message);
+        } else if (!isNetworkError(error) && !error.offline) {
           throw error;
         }
       }

@@ -239,7 +239,7 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
             disabled={syncing || !syncConfigured}
             title={
               !syncConfigured
-                ? 'Add gym-sync-config.json in AppData to enable cloud sync'
+                ? 'Cloud sync is disabled'
                 : offline
                   ? 'No internet — data stays on this PC'
                   : 'Sync with cloud'

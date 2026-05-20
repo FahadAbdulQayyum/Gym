@@ -3,14 +3,13 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const root = path.join(__dirname, '..');
-const winUnpacked = path.join(root, 'release', 'win-unpacked');
 
 function stopLockingProcesses() {
   if (process.platform !== 'win32') {
     return;
   }
 
-  for (const name of ['Gym', 'electron']) {
+  for (const name of ['Gym', 'electron', 'app-builder']) {
     try {
       execSync(`taskkill /F /IM ${name}.exe /T 2>nul`, { stdio: 'ignore' });
       console.log(`Stopped ${name}.exe (if it was running)`);
@@ -22,17 +21,21 @@ function stopLockingProcesses() {
 
 function removeDir(dir) {
   if (!fs.existsSync(dir)) {
-    return;
+    return true;
   }
 
-  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 400 });
-  console.log(`Removed ${path.relative(root, dir)}`);
+  try {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 500 });
+    console.log(`Removed ${path.relative(root, dir)}`);
+    return true;
+  } catch (error) {
+    console.warn(`Could not remove ${path.relative(root, dir)}:`, error.message);
+    return false;
+  }
 }
 
 stopLockingProcesses();
-try {
-  removeDir(winUnpacked);
-} catch (error) {
-  console.warn('Could not remove release\\win-unpacked:', error.message);
-  console.warn('Will try an alternate output folder if needed.\n');
+
+for (const name of ['release', 'release-build', 'release-new']) {
+  removeDir(path.join(root, name, 'win-unpacked'));
 }
