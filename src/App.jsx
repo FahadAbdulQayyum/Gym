@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import AppSidebar from './AppSidebar';
 import Dashboard from './Dashboard';
 import PlaceholderView from './PlaceholderView';
+import AddMember from './AddMember';
+import EditMembers from './EditMembers';
 import StudentsDashboard from './StudentsDashboard';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
@@ -9,7 +11,9 @@ import './App.css';
 
 const PAGE_LABELS = {
   dashboard: 'Dashboard',
-  members: 'Members & attendance',
+  'add-member': 'Add Member',
+  'edit-members': 'Edit Members',
+  'member-details': 'Complete Member Details',
   packages: 'Add Packages',
   fees: 'Collect Fees',
   'fees-report': 'Fees Collection Report',
@@ -138,7 +142,13 @@ function MainContent({ activePage }) {
   if (activePage === 'dashboard') {
     return <Dashboard />;
   }
-  if (activePage === 'members') {
+  if (activePage === 'add-member') {
+    return <AddMember />;
+  }
+  if (activePage === 'edit-members') {
+    return <EditMembers />;
+  }
+  if (activePage === 'attendance') {
     return <StudentsDashboard />;
   }
   return <PlaceholderView title={PAGE_LABELS[activePage] ?? activePage} />;

@@ -222,27 +222,84 @@ class StudentDatabase {
     return student ? this.normalizeStudent(student) : null;
   }
 
-  validateStudentInput({ name, age, entryDate }) {
-    const trimmedName = String(name ?? '').trim();
+  validateStudentInput(payload) {
+    const trimmedName = String(payload.name ?? '').trim();
     if (!trimmedName) {
       throw new Error('Name is required');
     }
 
-    const parsedAge = Number(age);
-    if (!Number.isFinite(parsedAge) || parsedAge < 1 || parsedAge > 120) {
-      throw new Error('Age must be between 1 and 120');
-    }
-
-    const date = new Date(entryDate);
+    const entryRaw = payload.entryDate ?? payload.registrationDate;
+    const date = new Date(entryRaw);
     if (Number.isNaN(date.getTime())) {
       throw new Error('Entry date is invalid');
     }
 
-    return {
+    const result = {
       name: trimmedName,
-      age: Math.floor(parsedAge),
       entryDate: date.toISOString().slice(0, 10),
     };
+
+    if (payload.age !== undefined && payload.age !== null && payload.age !== '') {
+      const parsedAge = Number(payload.age);
+      if (!Number.isFinite(parsedAge) || parsedAge < 1 || parsedAge > 120) {
+        throw new Error('Age must be between 1 and 120');
+      }
+      result.age = Math.floor(parsedAge);
+    }
+
+    const optionalStrings = [
+      'phone',
+      'gender',
+      'address',
+      'notes',
+      'status',
+      'packageId',
+      'packageLabel',
+      'packageStartDate',
+      'admissionPaymentMethod',
+      'trainerId',
+    ];
+    for (const key of optionalStrings) {
+      if (payload[key] !== undefined && payload[key] !== null) {
+        result[key] = String(payload[key]).trim();
+      }
+    }
+
+    const optionalNumbers = [
+      'packageDays',
+      'packagePrice',
+      'discount',
+      'admissionFee',
+      'trainerFee',
+      'trainerCommissionPercent',
+      'trainerCommissionAmount',
+      'totalAmount',
+    ];
+    for (const key of optionalNumbers) {
+      if (payload[key] === undefined || payload[key] === null || payload[key] === '') {
+        continue;
+      }
+      const n = Number(payload[key]);
+      if (Number.isFinite(n) && n >= 0) {
+        result[key] = n;
+      }
+    }
+
+    if (payload.packageStartDate) {
+      const start = new Date(payload.packageStartDate);
+      if (!Number.isNaN(start.getTime())) {
+        result.packageStartDate = start.toISOString().slice(0, 10);
+      }
+    }
+
+    if (payload.registrationDate) {
+      const reg = new Date(payload.registrationDate);
+      if (!Number.isNaN(reg.getTime())) {
+        result.registrationDate = reg.toISOString().slice(0, 10);
+      }
+    }
+
+    return result;
   }
 
   async createStudent(payload, ownerId) {
@@ -254,6 +311,7 @@ class StudentDatabase {
       id: newId(),
       ownerId,
       ...fields,
+      status: fields.status ?? 'active',
       memberCode: generateMemberCode(owned),
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -307,6 +365,7 @@ class StudentDatabase {
     const { pinHash, pinSalt, ...safe } = student;
     return {
       ...safe,
+      status: safe.status ?? 'active',
       hasPin: Boolean(pinHash && pinSalt),
     };
   }

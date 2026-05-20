@@ -1,0 +1,203 @@
+.add-member {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.add-member__message {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+}
+
+.add-member__message--error {
+  border: 1px solid rgba(245, 101, 101, 0.35);
+  background: rgba(61, 34, 40, 0.6);
+  color: #f8b4b4;
+}
+
+.add-member__message--success {
+  border: 1px solid rgba(212, 168, 75, 0.35);
+  background: rgba(50, 40, 20, 0.65);
+  color: #e8c56a;
+}
+
+.add-member__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.add-member__section {
+  padding: 22px 24px 20px;
+}
+
+.add-member__heading {
+  margin: 0 0 18px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: #f0f0f2;
+}
+
+.add-member__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+}
+
+.add-member__grid--trainer {
+  grid-template-columns: 1fr 1fr;
+}
+
+.add-member__full {
+  grid-column: 1 / -1;
+}
+
+.add-member__section label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #c8c8d0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.add-member__section input,
+.add-member__section select,
+.add-member__section textarea {
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: rgba(0, 0, 0, 0.45);
+  color: #eef1f4;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.add-member__section select {
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #a0a0a8 50%),
+    linear-gradient(135deg, #a0a0a8 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% + 2px), calc(100% - 12px) calc(50% + 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+.add-member__section textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.add-member__section input:focus,
+.add-member__section select:focus,
+.add-member__section textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+
+.add-member__hint {
+  margin: 12px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-subtle);
+  font-style: italic;
+}
+
+.add-member__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 8px 4px 12px;
+}
+
+.add-member__total {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.add-member__total-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.add-member__total-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
+
+.add-member__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.add-member__btn-cancel {
+  padding: 12px 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8e8ec;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.add-member__btn-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.add-member__btn-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-member .btn-primary {
+  margin-top: 0;
+  padding: 12px 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #e8c56a 0%, #b8862e 100%);
+  color: #0a0a0c;
+  font-weight: 650;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(212, 168, 75, 0.3);
+}
+
+.add-member .btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.add-member .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .add-member__grid,
+  .add-member__grid--trainer {
+    grid-template-columns: 1fr;
+  }
+
+  .add-member__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .add-member__actions {
+    justify-content: flex-end;
+  }
+}

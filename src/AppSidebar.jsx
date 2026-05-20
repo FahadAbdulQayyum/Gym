@@ -1,8 +1,8 @@
 const NAV_PRIMARY = [
   { id: 'dashboard', label: 'Dashboard' },
-  { id: 'members', label: 'Add Member' },
-  { id: 'members', label: 'Edit Members' },
-  { id: 'members', label: 'Complete Member Details' },
+  { id: 'add-member', label: 'Add Member' },
+  { id: 'edit-members', label: 'Edit Members' },
+  { id: 'member-details', label: 'Complete Member Details' },
   { id: 'packages', label: 'Add Packages' },
   { id: 'fees', label: 'Collect Fees' },
   { id: 'fees-report', label: 'Fees Collection Report' },

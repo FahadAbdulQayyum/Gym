@@ -648,7 +648,8 @@ export default function StudentsDashboard() {
                   >
                     <strong>{student.name}</strong>
                     <span>
-                      Age {student.age} · Joined {formatDate(student.entryDate)}
+                      {student.age != null ? `Age ${student.age} · ` : ''}
+                      Joined {formatDate(student.entryDate)}
                     </span>
                     <span className="students-list__meta">
                       ID {student.memberCode}
@@ -716,8 +717,14 @@ export default function StudentsDashboard() {
               <div className="student-profile">
                 <h3>{selected.name}</h3>
                 <p>
-                  Member ID <strong className="member-code">{selected.memberCode}</strong> · Age{' '}
-                  <strong>{selected.age}</strong> · Entry{' '}
+                  Member ID <strong className="member-code">{selected.memberCode}</strong>
+                  {selected.age != null && (
+                    <>
+                      {' '}
+                      · Age <strong>{selected.age}</strong>
+                    </>
+                  )}{' '}
+                  · Entry{' '}
                   <strong>{formatDate(selected.entryDate)}</strong>
                 </p>
                 <p className="student-profile__timestamps">
