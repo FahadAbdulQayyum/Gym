@@ -18,7 +18,29 @@ function getAudioContext() {
   return audioContext;
 }
 
-function playOopsTone() {
+function pickEnglishVoice() {
+  const voices = window.speechSynthesis?.getVoices?.() ?? [];
+  return (
+    voices.find((v) => v.lang.startsWith('en') && v.localService) ??
+    voices.find((v) => v.lang.startsWith('en'))
+  );
+}
+
+function speak(text, onError) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.05;
+  utterance.pitch = 1.15;
+  utterance.volume = 1;
+
+  const english = pickEnglishVoice();
+  if (english) utterance.voice = english;
+
+  utterance.onerror = onError;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
+function playTone(notes) {
   const ctx = getAudioContext();
   if (!ctx) return;
 
@@ -28,42 +50,55 @@ function playOopsTone() {
     const gain = ctx.createGain();
     gain.connect(ctx.destination);
     gain.gain.setValueAtTime(0.35, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
 
-    const playNote = (frequency, start, duration) => {
+    for (const { frequency, start, duration } of notes) {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(frequency, start);
       osc.connect(gain);
       osc.start(start);
       osc.stop(start + duration);
-    };
-
-    playNote(523.25, now, 0.12);
-    playNote(392, now + 0.1, 0.2);
-    playNote(311.13, now + 0.22, 0.22);
+    }
   });
+}
+
+function playOopsTone() {
+  const now = 0;
+  playTone([
+    { frequency: 523.25, start: now, duration: 0.12 },
+    { frequency: 392, start: now + 0.1, duration: 0.2 },
+    { frequency: 311.13, start: now + 0.22, duration: 0.22 },
+  ]);
+}
+
+function playWelcomeTone() {
+  const now = 0;
+  playTone([
+    { frequency: 392, start: now, duration: 0.12 },
+    { frequency: 523.25, start: now + 0.1, duration: 0.14 },
+    { frequency: 659.25, start: now + 0.22, duration: 0.22 },
+  ]);
 }
 
 export function playOops() {
   if (typeof window === 'undefined') return;
 
   try {
-    const voices = window.speechSynthesis?.getVoices?.() ?? [];
-    const utterance = new SpeechSynthesisUtterance('Oops');
-    utterance.rate = 1.05;
-    utterance.pitch = 1.15;
-    utterance.volume = 1;
-
-    const english =
-      voices.find((v) => v.lang.startsWith('en') && v.localService) ??
-      voices.find((v) => v.lang.startsWith('en'));
-    if (english) utterance.voice = english;
-
-    utterance.onerror = () => playOopsTone();
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    speak('Oops', playOopsTone);
   } catch {
     playOopsTone();
+  }
+}
+
+export function playWelcome(name) {
+  if (typeof window === 'undefined') return;
+
+  const message = name ? `Welcome, ${name}` : 'Welcome';
+
+  try {
+    speak(message, playWelcomeTone);
+  } catch {
+    playWelcomeTone();
   }
 }

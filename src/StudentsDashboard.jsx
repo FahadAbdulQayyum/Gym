@@ -5,7 +5,7 @@ import {
   verifyAnyEnrolledFingerprint,
   verifyFingerprint,
 } from './fingerprint';
-import { playOops } from './sounds';
+import { playOops, playWelcome } from './sounds';
 import './StudentsDashboard.css';
 
 function todayInputValue() {
@@ -295,6 +295,7 @@ export default function StudentsDashboard() {
       }
       await api.checkIn(selected.id, 'fingerprint');
       setSuccess(`${selected.name} checked in with fingerprint.`);
+      playWelcome(selected.name);
       await loadStudents();
     } catch (err) {
       setError(err.message ?? 'Fingerprint check-in failed');
@@ -324,6 +325,7 @@ export default function StudentsDashboard() {
       const verifiedId = await verifyAnyEnrolledFingerprint(credentialIds);
       const result = await api.checkInByFingerprint(verifiedId);
       setSuccess(`${result.student.name} checked in with fingerprint.`);
+      playWelcome(result.student.name);
       setSelectedId(result.student.id);
       await loadStudents();
     } catch (err) {
@@ -365,6 +367,7 @@ export default function StudentsDashboard() {
         ? await api.checkInByPin(pin)
         : await api.checkInByMemberCode(memberCode);
       setSuccess(`${result.student.name} checked in.`);
+      playWelcome(result.student.name);
       setSelectedId(result.student.id);
       setQuickPin('');
       setQuickMemberCode('');
