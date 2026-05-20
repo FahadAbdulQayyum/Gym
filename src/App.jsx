@@ -1,9 +1,34 @@
 import { useEffect, useState } from 'react';
-import icon from '../assets/dumble.png';
+import AppSidebar from './AppSidebar';
+import Dashboard from './Dashboard';
+import PlaceholderView from './PlaceholderView';
 import StudentsDashboard from './StudentsDashboard';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
 import './App.css';
+
+const PAGE_LABELS = {
+  dashboard: 'Dashboard',
+  members: 'Members & attendance',
+  packages: 'Add Packages',
+  fees: 'Collect Fees',
+  'fees-report': 'Fees Collection Report',
+  pos: 'POS',
+  inventory: 'Inventory',
+  registration: 'Daily Registration Report',
+  reports: 'Reports',
+  'fees-expire': 'Next 7 days member fees expire',
+  trainers: 'Add Trainers',
+  expenses: 'Expenses',
+  attendance: 'Daily Attendance',
+  zk50: 'Setup ZK50 Machine',
+  assets: 'Purchase Gym Assets',
+  'csv-sample': 'Download CSV Sample',
+  'csv-import': 'Import CSV',
+  backup: 'Get Software Backup',
+  branding: 'Gym Branding',
+  roles: 'User Roles',
+};
 
 function SyncBanner({ sync, onSyncNow }) {
   if (!sync?.configured) {
@@ -109,7 +134,18 @@ function AuthNotice({ message, onDismiss }) {
   );
 }
 
+function MainContent({ activePage }) {
+  if (activePage === 'dashboard') {
+    return <Dashboard />;
+  }
+  if (activePage === 'members') {
+    return <StudentsDashboard />;
+  }
+  return <PlaceholderView title={PAGE_LABELS[activePage] ?? activePage} />;
+}
+
 function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
+  const [activePage, setActivePage] = useState('dashboard');
   const [appVersion, setAppVersion] = useState('');
   const [update, setUpdate] = useState(null);
   const [sync, setSync] = useState(null);
@@ -164,24 +200,31 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
         ? 'Offline (local DB)'
         : 'Sync with cloud';
 
-  return (
-    <div className="app">
-      <AuthNotice message={authNotice} onDismiss={onDismissAuthNotice} />
-      <SyncBanner sync={sync} onSyncNow={window.gymApp?.runSync ? runSyncNow : null} />
-      <UpdateBanner update={update} onInstall={installUpdate} />
+  const pageLabel = PAGE_LABELS[activePage] ?? 'Dashboard';
 
-      <header className="header">
-        <div className="logo-wrap">
-          <img src={icon} alt="Gym" className="logo" />
-        </div>
-        <div className="header-text">
-          <h1>Gym</h1>
-          <p className="subtitle">Students, attendance &amp; member ID / PIN check-in</p>
-        </div>
-        <div className="header-actions">
+  return (
+    <div className="app app--shell">
+      <AppSidebar activeId={activePage} onNavigate={setActivePage} />
+
+      <div className="app-main">
+        <AuthNotice message={authNotice} onDismiss={onDismissAuthNotice} />
+        <SyncBanner sync={sync} onSyncNow={window.gymApp?.runSync ? runSyncNow : null} />
+        <UpdateBanner update={update} onInstall={installUpdate} />
+
+        <header className="main-header">
+          <div className="main-header__brand">
+            <span className="main-header__logo" aria-hidden>
+              G
+            </span>
+            <div>
+              <h1>Gym Manager</h1>
+              <p className="main-header__subtitle">Gym Manager — {pageLabel}</p>
+            </div>
+          </div>
+          <div className="main-header__actions">
           <button
             type="button"
-            className={`header-sync ${offline && syncConfigured ? 'header-sync--offline' : ''}`}
+            className={`btn-settings ${offline && syncConfigured ? 'btn-settings--offline' : ''}`}
             onClick={runSyncNow}
             disabled={syncing || !syncConfigured}
             title={
@@ -189,23 +232,23 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
                 ? 'Add gym-sync-config.json in AppData to enable cloud sync'
                 : offline
                   ? 'No internet — data stays on this PC'
-                  : sync?.accountId
-                    ? `Sync students for account ${sync.accountId}`
-                    : 'Push and pull students for your signed-in account'
+                  : 'Sync with cloud'
             }
           >
             {syncLabel}
           </button>
-          <span className="header-user">{session.username}</span>
-          <button type="button" className="header-signout" onClick={onLogout}>
-            Sign out
+          <span className="main-header__user">{session.username}</span>
+          <button type="button" className="btn-logout" onClick={onLogout}>
+            Logout
           </button>
-        </div>
-      </header>
+          </div>
+        </header>
 
-      <StudentsDashboard key={session.id} />
+        <main className="app-content" key={`${session.id}-${activePage}`}>
+          <MainContent activePage={activePage} />
+        </main>
 
-      <footer className="footer">
+        <footer className="footer">
         {appVersion ? `Gym v${appVersion}` : 'Gym'} · {window.gymApp?.platform ?? 'desktop'}
         {offline && ' · Offline mode'}
         {window.gymApp?.checkForUpdates && (
@@ -216,7 +259,8 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
             </button>
           </>
         )}
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }
