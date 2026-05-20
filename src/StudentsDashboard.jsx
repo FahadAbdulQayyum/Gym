@@ -5,6 +5,7 @@ import {
   verifyAnyEnrolledFingerprint,
   verifyFingerprint,
 } from './fingerprint';
+import { playOops } from './sounds';
 import './StudentsDashboard.css';
 
 function todayInputValue() {
@@ -297,6 +298,7 @@ export default function StudentsDashboard() {
       await loadStudents();
     } catch (err) {
       setError(err.message ?? 'Fingerprint check-in failed');
+      playOops();
     } finally {
       setSaving(false);
     }
@@ -326,6 +328,7 @@ export default function StudentsDashboard() {
       await loadStudents();
     } catch (err) {
       setError(err.message ?? 'Fingerprint check-in failed');
+      playOops();
     } finally {
       setSaving(false);
     }
@@ -368,6 +371,7 @@ export default function StudentsDashboard() {
       await loadStudents();
     } catch (err) {
       setError(err.message ?? 'Check-in failed');
+      playOops();
     } finally {
       setSaving(false);
     }
