@@ -5,6 +5,7 @@ server/.env
 dist/
 release/
 release-new/
+release*
 release-upload/
 releasee/
 releasee-new/
