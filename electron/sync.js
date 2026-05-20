@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
-const { net } = require('electron');
+const { app, net } = require('electron');
 const { getPaths, loadApiConfig, readJson } = require('./sync-config');
 
 const SYNC_DEBOUNCE_MS = 2500;

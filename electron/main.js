@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeImage, dialog } = require('electron');
 const path = require('path');
 const { setupAutoUpdater } = require('./updater');
 const { registerDatabaseHandlers, getDatabase, setDatabaseHooks } = require('./database');
@@ -104,7 +104,7 @@ function registerIpcHandlers() {
   });
 }
 
-app.whenReady().then(async () => {
+async function startApp() {
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.gym.desktop');
   }
@@ -141,6 +141,15 @@ app.whenReady().then(async () => {
       createWindow();
     }
   });
+}
+
+app.whenReady().then(startApp).catch((error) => {
+  console.error('Failed to start Gym:', error);
+  dialog.showErrorBox(
+    'Gym could not start',
+    error?.message ?? 'An unexpected error occurred while starting the app.'
+  );
+  app.quit();
 });
 
 app.on('window-all-closed', () => {

@@ -17,7 +17,8 @@ async function readJson(filePath, fallback) {
     if (error.code === 'ENOENT') {
       return fallback;
     }
-    throw error;
+    console.warn(`Could not read ${filePath}:`, error.message);
+    return fallback;
   }
 }
 
