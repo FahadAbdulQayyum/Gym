@@ -1,7 +1,8 @@
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
-const { app, net } = require('electron');
+const { net } = require('electron');
+const { getPaths, loadApiConfig, readJson } = require('./sync-config');
 
 const SYNC_DEBOUNCE_MS = 2500;
 const SYNC_INTERVAL_MS = 60000;
@@ -75,51 +76,13 @@ function setStatus(patch) {
   notifyStatus?.(lastStatus);
 }
 
-function parseJsonText(raw) {
-  const text = raw.replace(/^\uFEFF/, '').trim();
-  return JSON.parse(text);
-}
-
-async function readJson(filePath, fallback) {
-  try {
-    const raw = await fs.readFile(filePath, 'utf8');
-    return parseJsonText(raw);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      return fallback;
-    }
-    throw error;
-  }
-}
-
 async function writeJson(filePath, data) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, { encoding: 'utf8' });
 }
 
-function getPaths() {
-  const userData = app.getPath('userData');
-  return {
-    configPath: path.join(userData, 'gym-sync-config.json'),
-    metaPath: path.join(userData, 'gym-sync-meta.json'),
-  };
-}
-
 async function loadConfig() {
-  const { configPath } = getPaths();
-  const config = await readJson(configPath, null);
-  if (!config || config.enabled === false) {
-    return null;
-  }
-
-  const apiUrl = String(config.apiUrl ?? '').trim().replace(/\/$/, '');
-  const apiKey = String(config.apiKey ?? '').trim();
-
-  if (!apiUrl || !apiKey) {
-    return null;
-  }
-
-  return { apiUrl, apiKey };
+  return loadApiConfig();
 }
 
 async function resolveSyncContext() {

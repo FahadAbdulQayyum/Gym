@@ -2,6 +2,8 @@ const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
 const { app } = require('electron');
+const { cloudLogin, cloudSignup, cloudRegister, isNetworkError } = require('./cloud-auth');
+const { loadApiConfig } = require('./sync-config');
 
 function newId() {
   return crypto.randomUUID();
@@ -74,6 +76,29 @@ class UserDatabase {
   findUserByUsername(username) {
     const normalized = String(username ?? '').trim().toLowerCase();
     return this.data.users.find((entry) => entry.username === normalized) ?? null;
+  }
+
+  findUserById(id) {
+    return this.data.users.find((entry) => entry.id === id) ?? null;
+  }
+
+  async upsertLocalUser(remoteUser) {
+    const user = structuredClone(remoteUser);
+    delete user.deletedAt;
+
+    const localById = this.findUserById(user.id);
+    const localByName = this.findUserByUsername(user.username);
+    const local = localById ?? localByName;
+
+    if (!local) {
+      this.data.users.push(user);
+    } else if (new Date(user.updatedAt).getTime() >= new Date(local.updatedAt).getTime()) {
+      Object.assign(local, user);
+    }
+
+    this.dedupeUsersByUsername();
+    await this.save({ skipSync: true });
+    return this.findUserById(user.id) ?? this.findUserByUsername(user.username);
   }
 
   async save({ skipSync = false } = {}) {
@@ -187,22 +212,51 @@ class UserDatabase {
   async signup(username, password) {
     const normalized = this.validateUsername(username);
     const validPassword = this.validatePassword(password);
-    const existing = this.findUserByUsername(normalized);
 
+    if (normalized === 'admin') {
+      throw new Error(
+        'Username "admin" is reserved. Use admin / admin to sign in on this device only, or pick another username.'
+      );
+    }
+
+    const apiConfig = await loadApiConfig();
+
+    if (apiConfig) {
+      try {
+        const remoteUser = await cloudSignup(apiConfig, normalized, validPassword);
+        const user = await this.upsertLocalUser(remoteUser);
+        await this.writeSession(user);
+
+        let cloudSync = {
+          status: 'synced',
+          message: 'Account saved to the cloud. You can sign in on any device.',
+        };
+        if (accountCreatedHook) {
+          cloudSync = await accountCreatedHook({ ensureUserIds: [user.id] });
+        }
+
+        return { session: this.session, cloudSync };
+      } catch (error) {
+        if (error.status === 409) {
+          throw new Error(
+            `${error.message} Sign in instead, or choose a different username.`
+          );
+        }
+        if (!isNetworkError(error) && !error.offline) {
+          throw error;
+        }
+      }
+    }
+
+    const existing = this.findUserByUsername(normalized);
     if (existing) {
       if (verifyPassword(validPassword, existing.passwordSalt, existing.passwordHash)) {
         await this.writeSession(existing);
         return { session: this.session, cloudSync: { status: 'existing' } };
       }
 
-      if (normalized === 'admin') {
-        throw new Error(
-          'Username "admin" is reserved. Use admin / admin to sign in, or pick another username.'
-        );
-      }
-
       throw new Error(
-        `Username "${normalized}" is already registered on this device. Sign in instead, or choose a different username.`
+        `Username "${normalized}" is already registered. Sign in instead, or choose a different username.`
       );
     }
 
@@ -225,7 +279,9 @@ class UserDatabase {
 
       let cloudSync = {
         status: 'disabled',
-        message: 'Account saved locally. Configure cloud sync to use MongoDB.',
+        message: apiConfig
+          ? 'Account saved locally while offline. It will upload when you are back online.'
+          : 'Account saved locally. Add BACKEND_URL and SYNC_API_KEY to .env, then rebuild, for cloud sign-in.',
       };
       if (accountCreatedHook) {
         cloudSync = await accountCreatedHook({ ensureUserIds: [user.id] });
@@ -240,9 +296,50 @@ class UserDatabase {
 
   async login(username, password) {
     const normalized = this.validateUsername(username);
+    const validPassword = this.validatePassword(password);
+    const apiConfig = await loadApiConfig();
+
+    if (apiConfig) {
+      try {
+        const remoteUser = await cloudLogin(apiConfig, normalized, validPassword);
+        const user = await this.upsertLocalUser(remoteUser);
+        await this.writeSession(user);
+        return this.session;
+      } catch (error) {
+        if (error.status === 401) {
+          throw new Error('Invalid username or password');
+        }
+        if (!isNetworkError(error) && !error.offline) {
+          throw error;
+        }
+      }
+    }
+
     const user = this.findUserByUsername(normalized);
-    if (!user || !verifyPassword(password, user.passwordSalt, user.passwordHash)) {
+    if (!user || !verifyPassword(validPassword, user.passwordSalt, user.passwordHash)) {
+      if (apiConfig) {
+        throw new Error(
+          'Invalid username or password. If this is a new device, connect to the internet and try again.'
+        );
+      }
       throw new Error('Invalid username or password');
+    }
+
+    if (apiConfig && normalized !== 'admin') {
+      try {
+        const remoteUser = await cloudRegister(apiConfig, {
+          id: user.id,
+          username: normalized,
+          password: validPassword,
+        });
+        const merged = await this.upsertLocalUser(remoteUser);
+        await this.writeSession(merged);
+        return this.session;
+      } catch (registerError) {
+        if (!isNetworkError(registerError) && !registerError.offline) {
+          console.warn('Could not register local account to cloud:', registerError.message);
+        }
+      }
     }
 
     await this.writeSession(user);

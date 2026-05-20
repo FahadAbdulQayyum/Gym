@@ -79,8 +79,11 @@ export default function SignIn({ onSignedIn, onShowSignUp }) {
             Create one
           </button>
         </p>
-        <p className="signin-hint">Default test account: admin / admin</p>
-        <p className="signin-offline-note">Works offline — data is stored on this device.</p>
+        <p className="signin-hint">Default on this device only: admin / admin</p>
+        <p className="signin-offline-note">
+          Accounts created with &quot;Create one&quot; are stored in the cloud — sign in on any PC with the same
+          username and password.
+        </p>
       </div>
     </div>
   );

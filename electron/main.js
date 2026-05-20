@@ -12,6 +12,7 @@ const {
   runSync,
 } = require('./sync');
 const { createStaticServer } = require('./static-server');
+const { ensureUserSyncConfig } = require('./sync-config');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -109,6 +110,8 @@ app.whenReady().then(async () => {
   }
 
   registerIpcHandlers();
+
+  await ensureUserSyncConfig();
 
   const auth = await getAuth();
   const database = await getDatabase();

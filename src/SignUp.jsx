@@ -57,7 +57,7 @@ export default function SignUp({ onSignedIn, onShowSignIn }) {
           <img src={icon} alt="Gym" className="signin-logo" />
         </div>
         <h1 className="signin-title">Create account</h1>
-        <p className="signin-subtitle">Register to use Gym on this device</p>
+        <p className="signin-subtitle">Register once — use the same login on any computer</p>
 
         <form className="signin-form" onSubmit={handleSubmit}>
           <label className="signin-field">
@@ -120,7 +120,7 @@ export default function SignUp({ onSignedIn, onShowSignIn }) {
           </button>
         </p>
         <p className="signin-offline-note">
-          New accounts are saved locally and uploaded to MongoDB when cloud sync is configured.
+          Your account is saved to the cloud when online. Student data syncs after you sign in.
         </p>
       </div>
     </div>
