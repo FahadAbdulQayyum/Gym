@@ -3,6 +3,7 @@ import {
   DEFAULT_PACKAGES,
   GENDER_OPTIONS,
   STATUS_OPTIONS,
+  activePackagesOnly,
   buildMemberPayload,
   formatRs,
   memberMatchesQuery,
@@ -11,6 +12,7 @@ import {
   resolvePackageId,
   todayInputValue,
 } from './memberShared';
+import { usePackages } from './usePackages';
 import './EditMembers.css';
 
 function emptyEditForm() {
@@ -58,7 +60,18 @@ export default function EditMembers() {
   const [success, setSuccess] = useState('');
 
   const api = window.gymApp?.students;
-  const packages = DEFAULT_PACKAGES;
+  const { packages: allPackages } = usePackages();
+  const packages = useMemo(() => {
+    const base = activePackagesOnly(allPackages.length ? allPackages : DEFAULT_PACKAGES);
+    const member = members.find((m) => m.id === selectedId);
+    if (!member) return base;
+    const pkgId = resolvePackageId(member, allPackages.length ? allPackages : DEFAULT_PACKAGES);
+    if (pkgId && !base.some((p) => p.id === pkgId)) {
+      const extra = (allPackages.length ? allPackages : DEFAULT_PACKAGES).find((p) => p.id === pkgId);
+      if (extra) return [...base, extra];
+    }
+    return base;
+  }, [allPackages, members, selectedId]);
 
   const filtered = useMemo(() => {
     const sorted = [...members].sort((a, b) =>

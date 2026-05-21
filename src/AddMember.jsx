@@ -3,12 +3,14 @@ import {
   DEFAULT_PACKAGES,
   GENDER_OPTIONS,
   PAYMENT_METHODS,
+  activePackagesOnly,
   buildMemberPayload,
   formatRs,
   packageOptionLabel,
   parseAmount,
   todayInputValue,
 } from './memberShared';
+import { usePackages } from './usePackages';
 import './AddMember.css';
 
 function emptyForm() {
@@ -32,7 +34,8 @@ function emptyForm() {
 
 export default function AddMember() {
   const [form, setForm] = useState(emptyForm);
-  const [packages] = useState(DEFAULT_PACKAGES);
+  const { packages: allPackages } = usePackages();
+  const packages = activePackagesOnly(allPackages.length ? allPackages : DEFAULT_PACKAGES);
   const [trainers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');

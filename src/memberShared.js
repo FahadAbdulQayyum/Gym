@@ -15,10 +15,37 @@ export const STATUS_OPTIONS = [
 export const PAYMENT_METHODS = ['Cash', 'Card', 'Bank Transfer', 'UPI', 'Online'];
 
 export const DEFAULT_PACKAGES = [
-  { id: 'silver', label: 'silver', days: 30, price: 3500 },
-  { id: 'gold', label: 'gold', days: 30, price: 5000 },
-  { id: 'platinum', label: 'platinum', days: 30, price: 7000 },
+  { id: 'silver', label: 'silver', days: 30, price: 3500, active: true },
+  { id: 'gold', label: 'gold', days: 30, price: 5000, active: true },
+  { id: 'platinum', label: 'platinum', days: 30, price: 7000, active: true },
 ];
+
+export function normalizePackage(pkg) {
+  if (!pkg) return null;
+  return {
+    id: pkg.id,
+    label: pkg.label ?? pkg.name ?? '',
+    days: pkg.days ?? 0,
+    price: pkg.price ?? 0,
+    active: pkg.active !== false,
+  };
+}
+
+export function activePackagesOnly(packages) {
+  return packages.filter((p) => p.active !== false);
+}
+
+export function packageMatchesQuery(pkg, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const name = String(pkg.label ?? '').toLowerCase();
+  const days = String(pkg.days ?? '');
+  return name.includes(q) || days.includes(q);
+}
+
+export function formatPackagePrice(price) {
+  return `PKR ${Math.max(0, Math.round(price)).toLocaleString('en-PK')}`;
+}
 
 export function todayInputValue() {
   return new Date().toISOString().slice(0, 10);

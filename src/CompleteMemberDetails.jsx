@@ -7,6 +7,7 @@ import {
   memberMatchesQuery,
   memberToDetailsRow,
 } from './memberShared';
+import { usePackages } from './usePackages';
 import './CompleteMemberDetails.css';
 
 const FILTER_GENDERS = GENDER_OPTIONS.filter((opt) => opt.value);
@@ -20,6 +21,8 @@ export default function CompleteMemberDetails() {
   const [error, setError] = useState('');
 
   const api = window.gymApp?.students;
+  const { packages } = usePackages();
+  const packageList = packages.length ? packages : DEFAULT_PACKAGES;
 
   const loadMembers = useCallback(async () => {
     if (!api?.list) {
@@ -75,8 +78,8 @@ export default function CompleteMemberDetails() {
   }, [members, search, statusFilter, genderFilter]);
 
   const rows = useMemo(
-    () => filtered.map((member, index) => memberToDetailsRow(member, index, DEFAULT_PACKAGES)),
-    [filtered]
+    () => filtered.map((member, index) => memberToDetailsRow(member, index, packageList)),
+    [filtered, packageList]
   );
 
   function handleExportCsv() {

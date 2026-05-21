@@ -5,6 +5,7 @@ import PlaceholderView from './PlaceholderView';
 import AddMember from './AddMember';
 import EditMembers from './EditMembers';
 import CompleteMemberDetails from './CompleteMemberDetails';
+import AddPackages from './AddPackages';
 import StudentsDashboard from './StudentsDashboard';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
@@ -151,6 +152,9 @@ function MainContent({ activePage }) {
   }
   if (activePage === 'member-details') {
     return <CompleteMemberDetails />;
+  }
+  if (activePage === 'packages') {
+    return <AddPackages />;
   }
   if (activePage === 'attendance') {
     return <StudentsDashboard />;

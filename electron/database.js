@@ -13,6 +13,35 @@ function nowIso() {
 
 const CHECK_IN_METHODS = new Set(['manual', 'fingerprint', 'pin', 'memberId']);
 
+const SEED_PACKAGES = [
+  { id: 'silver', label: 'silver', days: 30, price: 3500, active: true },
+  { id: 'gold', label: 'gold', days: 30, price: 5000, active: true },
+  { id: 'platinum', label: 'platinum', days: 30, price: 7000, active: true },
+];
+
+function slugFromPackageName(name) {
+  const base = String(name ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return base || 'package';
+}
+
+function generatePackageId(label, owned) {
+  const base = slugFromPackageName(label);
+  if (!owned.some((p) => p.id === base)) {
+    return base;
+  }
+  for (let n = 2; n < 1000; n += 1) {
+    const candidate = `${base}-${n}`;
+    if (!owned.some((p) => p.id === candidate)) {
+      return candidate;
+    }
+  }
+  throw new Error('Could not generate a unique package id');
+}
+
 function generateMemberCode(students) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -67,7 +96,7 @@ function validatePin(pin) {
 class StudentDatabase {
   constructor() {
     this.filePath = null;
-    this.data = { students: [] };
+    this.data = { students: [], packages: [] };
   }
 
   async init() {
@@ -81,6 +110,7 @@ class StudentDatabase {
       const parsed = JSON.parse(raw);
       this.data = {
         students: Array.isArray(parsed.students) ? parsed.students : [],
+        packages: Array.isArray(parsed.packages) ? parsed.packages : [],
       };
       await this.ensureMemberCodes();
     } catch (error) {
@@ -102,6 +132,172 @@ class StudentDatabase {
 
   studentsForOwner(ownerId) {
     return this.data.students.filter((student) => student.ownerId === ownerId);
+  }
+
+  packagesForOwner(ownerId) {
+    return this.data.packages.filter((pkg) => pkg.ownerId === ownerId);
+  }
+
+  normalizePackage(pkg) {
+    return {
+      id: pkg.id,
+      label: pkg.label,
+      days: pkg.days,
+      price: pkg.price,
+      active: pkg.active !== false,
+      createdAt: pkg.createdAt,
+      updatedAt: pkg.updatedAt,
+    };
+  }
+
+  async ensureDefaultPackages(ownerId) {
+    const owned = this.packagesForOwner(ownerId);
+    if (owned.length > 0) {
+      return;
+    }
+
+    const timestamp = nowIso();
+    for (const seed of SEED_PACKAGES) {
+      this.data.packages.push({
+        id: seed.id,
+        ownerId,
+        label: seed.label,
+        days: seed.days,
+        price: seed.price,
+        active: true,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
+    await this.save();
+  }
+
+  getPackageRecord(id, ownerId) {
+    return this.data.packages.find((p) => p.id === id && p.ownerId === ownerId) ?? null;
+  }
+
+  validatePackageInput(payload, { isCreate, ownerId, existingId } = {}) {
+    const label = String(payload.label ?? payload.name ?? '').trim();
+    if (!label) {
+      throw new Error('Package name is required');
+    }
+
+    const days = Number(payload.days);
+    if (!Number.isFinite(days) || days < 1 || days > 3650) {
+      throw new Error('Duration must be between 1 and 3650 days');
+    }
+
+    const price = Number(payload.price);
+    if (!Number.isFinite(price) || price < 0) {
+      throw new Error('Price must be zero or greater');
+    }
+
+    const result = {
+      label,
+      days: Math.floor(days),
+      price: Math.round(price),
+    };
+
+    if (payload.active !== undefined) {
+      const activeRaw = payload.active;
+      result.active =
+        activeRaw === true ||
+        activeRaw === 'true' ||
+        activeRaw === 'yes' ||
+        activeRaw === 'Yes' ||
+        activeRaw === 1 ||
+        activeRaw === '1';
+    }
+
+    if (isCreate) {
+      const owned = this.packagesForOwner(ownerId);
+      result.id = generatePackageId(label, owned);
+    } else if (existingId) {
+      const owned = this.packagesForOwner(ownerId);
+      const slug = slugFromPackageName(label);
+      const conflict = owned.find((p) => p.id !== existingId && p.label.toLowerCase() === label.toLowerCase());
+      if (conflict) {
+        throw new Error('A package with this name already exists');
+      }
+      if (slug !== existingId && owned.some((p) => p.id === slug)) {
+        throw new Error('Package id conflict; choose a different name');
+      }
+    }
+
+    return result;
+  }
+
+  async listPackages(ownerId, { includeInactive = false } = {}) {
+    await this.ensureDefaultPackages(ownerId);
+    let list = this.packagesForOwner(ownerId);
+    if (!includeInactive) {
+      list = list.filter((p) => p.active !== false);
+    }
+    return list
+      .map((pkg) => this.normalizePackage(pkg))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  }
+
+  async createPackage(payload, ownerId) {
+    const fields = this.validatePackageInput(payload, { isCreate: true, ownerId });
+    const timestamp = nowIso();
+    const active = fields.active !== undefined ? fields.active : true;
+
+    const pkg = {
+      id: fields.id,
+      ownerId,
+      label: fields.label,
+      days: fields.days,
+      price: fields.price,
+      active,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    this.data.packages.push(pkg);
+    await this.save();
+    return this.normalizePackage(pkg);
+  }
+
+  async updatePackage(id, payload, ownerId) {
+    const pkg = this.getPackageRecord(id, ownerId);
+    if (!pkg) {
+      throw new Error('Package not found');
+    }
+
+    const fields = this.validatePackageInput(payload, {
+      isCreate: false,
+      ownerId,
+      existingId: id,
+    });
+
+    if (fields.active !== undefined) {
+      pkg.active = fields.active;
+    }
+    pkg.label = fields.label;
+    pkg.days = fields.days;
+    pkg.price = fields.price;
+    pkg.updatedAt = nowIso();
+
+    await this.save();
+    return this.normalizePackage(pkg);
+  }
+
+  async deletePackage(id, ownerId) {
+    const pkg = this.getPackageRecord(id, ownerId);
+    if (!pkg) {
+      throw new Error('Package not found');
+    }
+
+    const inUse = this.studentsForOwner(ownerId).some((s) => s.packageId === id);
+    if (inUse) {
+      throw new Error('Cannot delete: members are assigned to this package. Deactivate instead.');
+    }
+
+    const index = this.data.packages.findIndex((p) => p.id === id && p.ownerId === ownerId);
+    this.data.packages.splice(index, 1);
+    await this.save();
+    return { id };
   }
 
   async migrateOrphanStudents(users = []) {
@@ -561,6 +757,38 @@ function registerDatabaseHandlers(ipcMain) {
       return handler(session, ...args);
     };
   }
+
+  ipcMain.handle(
+    'db:packages:list',
+    guarded(async (session, _event, { includeInactive } = {}) => {
+      const database = await getDatabase();
+      return database.listPackages(session.id, { includeInactive: !!includeInactive });
+    })
+  );
+
+  ipcMain.handle(
+    'db:packages:create',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.createPackage(payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:packages:update',
+    guarded(async (session, _event, { id, ...payload }) => {
+      const database = await getDatabase();
+      return database.updatePackage(id, payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:packages:delete',
+    guarded(async (session, _event, { id }) => {
+      const database = await getDatabase();
+      return database.deletePackage(id, session.id);
+    })
+  );
 
   ipcMain.handle(
     'db:students:list',
