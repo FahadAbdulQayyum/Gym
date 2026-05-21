@@ -96,7 +96,7 @@ function validatePin(pin) {
 class StudentDatabase {
   constructor() {
     this.filePath = null;
-    this.data = { students: [], packages: [] };
+    this.data = { students: [], packages: [], products: [], sales: [] };
   }
 
   async init() {
@@ -111,6 +111,8 @@ class StudentDatabase {
       this.data = {
         students: Array.isArray(parsed.students) ? parsed.students : [],
         packages: Array.isArray(parsed.packages) ? parsed.packages : [],
+        products: Array.isArray(parsed.products) ? parsed.products : [],
+        sales: Array.isArray(parsed.sales) ? parsed.sales : [],
       };
       await this.ensureMemberCodes();
     } catch (error) {
@@ -300,6 +302,208 @@ class StudentDatabase {
     return { id };
   }
 
+  productsForOwner(ownerId) {
+    return this.data.products.filter((p) => p.ownerId === ownerId);
+  }
+
+  salesForOwner(ownerId) {
+    return this.data.sales.filter((s) => s.ownerId === ownerId);
+  }
+
+  getProductRecord(id, ownerId) {
+    return this.data.products.find((p) => p.id === id && p.ownerId === ownerId) ?? null;
+  }
+
+  normalizeProduct(product) {
+    return {
+      id: product.id,
+      name: product.name,
+      sku: product.sku ?? '',
+      unit: product.unit ?? 'pcs',
+      unitPrice: product.unitPrice ?? 0,
+      stockQty: product.stockQty ?? 0,
+      active: product.active !== false,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
+  }
+
+  validateProductInput(payload) {
+    const name = String(payload.name ?? '').trim();
+    if (!name) {
+      throw new Error('Product name is required');
+    }
+
+    const unitPrice = Number(payload.unitPrice ?? payload.price);
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      throw new Error('Unit price must be zero or greater');
+    }
+
+    const stockQty = Number(payload.stockQty ?? payload.stock ?? 0);
+    if (!Number.isFinite(stockQty) || stockQty < 0) {
+      throw new Error('Stock must be zero or greater');
+    }
+
+    const result = {
+      name,
+      sku: String(payload.sku ?? '').trim(),
+      unit: String(payload.unit ?? 'pcs').trim() || 'pcs',
+      unitPrice: Math.round(unitPrice),
+      stockQty: Math.floor(stockQty),
+    };
+
+    if (payload.active !== undefined) {
+      const activeRaw = payload.active;
+      result.active =
+        activeRaw === true ||
+        activeRaw === 'true' ||
+        activeRaw === 'yes' ||
+        activeRaw === 'Yes' ||
+        activeRaw === 1 ||
+        activeRaw === '1';
+    }
+
+    return result;
+  }
+
+  async listProducts(ownerId, { inStockOnly = false, includeInactive = false } = {}) {
+    let list = this.productsForOwner(ownerId);
+    if (!includeInactive) {
+      list = list.filter((p) => p.active !== false);
+    }
+    if (inStockOnly) {
+      list = list.filter((p) => (p.stockQty ?? 0) > 0);
+    }
+    return list
+      .map((p) => this.normalizeProduct(p))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }
+
+  async createProduct(payload, ownerId) {
+    const fields = this.validateProductInput(payload);
+    const timestamp = nowIso();
+    const active = fields.active !== undefined ? fields.active : true;
+
+    const product = {
+      id: newId(),
+      ownerId,
+      ...fields,
+      active,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    this.data.products.push(product);
+    await this.save();
+    return this.normalizeProduct(product);
+  }
+
+  async updateProduct(id, payload, ownerId) {
+    const product = this.getProductRecord(id, ownerId);
+    if (!product) {
+      throw new Error('Product not found');
+    }
+
+    const fields = this.validateProductInput(payload);
+    if (fields.active !== undefined) {
+      product.active = fields.active;
+    }
+    Object.assign(product, fields, { updatedAt: nowIso() });
+    await this.save();
+    return this.normalizeProduct(product);
+  }
+
+  async deleteProduct(id, ownerId) {
+    const index = this.data.products.findIndex((p) => p.id === id && p.ownerId === ownerId);
+    if (index === -1) {
+      throw new Error('Product not found');
+    }
+    this.data.products.splice(index, 1);
+    await this.save();
+    return { id };
+  }
+
+  async completePosSale(payload, ownerId) {
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    if (items.length === 0) {
+      throw new Error('Cart is empty');
+    }
+
+    const discount = Math.max(0, Math.round(Number(payload.discount) || 0));
+    const tax = Math.max(0, Math.round(Number(payload.tax) || 0));
+    const paymentMethod = String(payload.paymentMethod ?? 'Cash').trim() || 'Cash';
+    const note = String(payload.note ?? '').trim();
+
+    const saleItems = [];
+    let subtotal = 0;
+
+    for (const line of items) {
+      const productId = line.productId;
+      const qty = Math.floor(Number(line.qty));
+      if (!productId || !Number.isFinite(qty) || qty < 1) {
+        throw new Error('Invalid cart item');
+      }
+
+      const product = this.getProductRecord(productId, ownerId);
+      if (!product || product.active === false) {
+        throw new Error(`Product not available: ${line.name ?? productId}`);
+      }
+      if ((product.stockQty ?? 0) < qty) {
+        throw new Error(`Insufficient stock for ${product.name}`);
+      }
+
+      const unitPrice = product.unitPrice ?? 0;
+      const lineTotal = unitPrice * qty;
+      subtotal += lineTotal;
+
+      saleItems.push({
+        productId: product.id,
+        name: product.name,
+        sku: product.sku ?? '',
+        unit: product.unit ?? 'pcs',
+        unitPrice,
+        qty,
+        lineTotal,
+      });
+
+      product.stockQty = (product.stockQty ?? 0) - qty;
+      product.updatedAt = nowIso();
+    }
+
+    const total = Math.max(0, subtotal - discount + tax);
+    let paidAmount = payload.paidAmount;
+    if (paidAmount === '' || paidAmount === null || paidAmount === undefined) {
+      paidAmount = total;
+    } else {
+      paidAmount = Math.round(Number(paidAmount));
+      if (!Number.isFinite(paidAmount) || paidAmount < 0) {
+        throw new Error('Paid amount is invalid');
+      }
+    }
+
+    const sale = {
+      id: newId(),
+      ownerId,
+      items: saleItems,
+      subtotal,
+      discount,
+      tax,
+      total,
+      paymentMethod,
+      paidAmount,
+      changeAmount: Math.max(0, paidAmount - total),
+      note,
+      soldAt: nowIso(),
+    };
+
+    if (!Array.isArray(this.data.sales)) {
+      this.data.sales = [];
+    }
+    this.data.sales.push(sale);
+    await this.save();
+    return sale;
+  }
+
   async migrateOrphanStudents(users = []) {
     const orphans = this.data.students.filter((student) => !student.ownerId);
     if (orphans.length === 0) {
@@ -453,6 +657,7 @@ class StudentDatabase {
       'packageLabel',
       'packageStartDate',
       'admissionPaymentMethod',
+      'lastPaymentMethod',
       'trainerId',
     ];
     for (const key of optionalStrings) {
@@ -515,7 +720,12 @@ class StudentDatabase {
       pinHash: null,
       pinSalt: null,
       attendance: [],
+      feePayments: [],
     };
+
+    if (fields.admissionPaymentMethod) {
+      student.lastPaymentMethod = fields.admissionPaymentMethod;
+    }
 
     this.data.students.push(student);
     await this.save();
@@ -810,6 +1020,46 @@ function registerDatabaseHandlers(ipcMain) {
       return handler(session, ...args);
     };
   }
+
+  ipcMain.handle(
+    'db:products:list',
+    guarded(async (session, _event, options = {}) => {
+      const database = await getDatabase();
+      return database.listProducts(session.id, options);
+    })
+  );
+
+  ipcMain.handle(
+    'db:products:create',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.createProduct(payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:products:update',
+    guarded(async (session, _event, { id, ...payload }) => {
+      const database = await getDatabase();
+      return database.updateProduct(id, payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:products:delete',
+    guarded(async (session, _event, { id }) => {
+      const database = await getDatabase();
+      return database.deleteProduct(id, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:pos:complete-sale',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.completePosSale(payload, session.id);
+    })
+  );
 
   ipcMain.handle(
     'db:packages:list',

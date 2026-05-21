@@ -8,6 +8,7 @@ import {
   memberMatchesQuery,
   memberPackageLabel,
   parseAmount,
+  resolveMemberPaymentMethod,
   resolvePackageId,
   todayInputValue,
 } from './memberShared';
@@ -28,7 +29,7 @@ function memberToFeeForm(member, packages) {
   return {
     packageId,
     discount: String(member.discount ?? 0),
-    paymentMethod: member.lastPaymentMethod ?? 'Cash',
+    paymentMethod: resolveMemberPaymentMethod(member),
     startFrom: member.packageStartDate ?? member.entryDate ?? todayInputValue(),
   };
 }

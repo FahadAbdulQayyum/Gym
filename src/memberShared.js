@@ -60,6 +60,12 @@ export function formatRs(amount) {
   return `Rs ${Math.max(0, Math.round(amount)).toLocaleString('en-PK')}`;
 }
 
+export function resolveMemberPaymentMethod(member) {
+  const method = member?.lastPaymentMethod ?? member?.admissionPaymentMethod ?? '';
+  const trimmed = String(method).trim();
+  return trimmed || 'Cash';
+}
+
 export function packageOptionLabel(pkg) {
   return `${pkg.label} • ${pkg.days} days • Rs ${pkg.price}`;
 }
