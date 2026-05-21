@@ -7,6 +7,7 @@ import EditMembers from './EditMembers';
 import CompleteMemberDetails from './CompleteMemberDetails';
 import AddPackages from './AddPackages';
 import CollectFees from './CollectFees';
+import FeesCollectionReport from './FeesCollectionReport';
 import StudentsDashboard from './StudentsDashboard';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
@@ -159,6 +160,9 @@ function MainContent({ activePage }) {
   }
   if (activePage === 'fees') {
     return <CollectFees />;
+  }
+  if (activePage === 'fees-report') {
+    return <FeesCollectionReport />;
   }
   if (activePage === 'attendance') {
     return <StudentsDashboard />;

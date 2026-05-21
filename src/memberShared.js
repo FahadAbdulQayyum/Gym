@@ -133,6 +133,77 @@ export function memberNextExpiry(member, packages = DEFAULT_PACKAGES) {
   return expiry.toISOString().slice(0, 10);
 }
 
+export function expiryFromStartDate(startRaw, packageId, packages = DEFAULT_PACKAGES) {
+  if (!startRaw) return '';
+  const pkg = packages.find((p) => p.id === packageId);
+  const days = pkg?.days ?? 0;
+  if (!days) return '';
+
+  const start = new Date(`${String(startRaw).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(start.getTime())) return '';
+
+  const expiry = new Date(start);
+  expiry.setDate(expiry.getDate() + days);
+  return expiry.toISOString().slice(0, 10);
+}
+
+export function packageLabelFromPayment(payment, packages = DEFAULT_PACKAGES) {
+  if (payment.packageLabel) {
+    const part = payment.packageLabel.split(' • ')[0];
+    if (part) return part.trim();
+  }
+  const pkg = packages.find((p) => p.id === payment.packageId);
+  return pkg?.label ?? payment.packageId ?? '—';
+}
+
+export function flattenFeePayments(members, packages = DEFAULT_PACKAGES) {
+  const rows = [];
+
+  for (const member of members) {
+    for (const payment of member.feePayments ?? []) {
+      const paymentDate = payment.collectedAt?.slice(0, 10) ?? '';
+      rows.push({
+        id: payment.id,
+        paymentDate,
+        memberId: member.memberCode ?? '—',
+        name: member.name ?? '—',
+        contact: member.phone ?? '—',
+        gender: member.gender || '—',
+        package: packageLabelFromPayment(payment, packages),
+        discount: payment.discount ?? 0,
+        paidAmount: payment.amount ?? 0,
+        mode: payment.paymentMethod ?? '—',
+        nextExpiry: expiryFromStartDate(payment.startDate, payment.packageId, packages),
+      });
+    }
+  }
+
+  return rows.sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+}
+
+export function feeReportMatchesQuery(row, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const phoneQ = q.replace(/\s/g, '');
+  const contact = String(row.contact ?? '').replace(/\s/g, '').toLowerCase();
+  return (
+    String(row.memberId ?? '').toLowerCase().includes(q) ||
+    String(row.name ?? '').toLowerCase().includes(q) ||
+    contact.includes(phoneQ) ||
+    String(row.gender ?? '').toLowerCase().includes(q) ||
+    String(row.package ?? '').toLowerCase().includes(q) ||
+    String(row.mode ?? '').toLowerCase().includes(q)
+  );
+}
+
+export function feeReportInDateRange(row, dateFrom, dateTo) {
+  const date = row.paymentDate;
+  if (!date) return false;
+  if (dateFrom && date < dateFrom) return false;
+  if (dateTo && date > dateTo) return false;
+  return true;
+}
+
 export function memberToDetailsRow(member, index, packages = DEFAULT_PACKAGES) {
   return {
     srNo: index + 1,
