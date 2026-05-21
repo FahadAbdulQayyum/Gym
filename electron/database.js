@@ -534,6 +534,59 @@ class StudentDatabase {
     return this.normalizeStudent(student);
   }
 
+  async collectFeeAndRenew(studentId, payload, ownerId) {
+    const student = this.getStudentRecord(studentId, ownerId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    const startRaw = payload.packageStartDate;
+    if (!startRaw) {
+      throw new Error('Start date is required');
+    }
+    const startDate = new Date(startRaw);
+    if (Number.isNaN(startDate.getTime())) {
+      throw new Error('Start date is invalid');
+    }
+
+    const fields = this.validateStudentInput({
+      ...payload,
+      name: payload.name ?? student.name,
+      entryDate: payload.entryDate ?? student.entryDate ?? student.registrationDate,
+    });
+
+    const paymentMethod = String(payload.paymentMethod ?? 'Cash').trim() || 'Cash';
+    const totalAmount =
+      fields.totalAmount ??
+      Math.max(0, (fields.packagePrice ?? 0) - (fields.discount ?? 0));
+
+    if (!Array.isArray(student.feePayments)) {
+      student.feePayments = [];
+    }
+
+    student.feePayments.push({
+      id: newId(),
+      amount: totalAmount,
+      discount: fields.discount ?? 0,
+      packagePrice: fields.packagePrice ?? student.packagePrice,
+      packageId: fields.packageId ?? student.packageId,
+      packageLabel: fields.packageLabel ?? student.packageLabel,
+      paymentMethod,
+      startDate: fields.packageStartDate,
+      collectedAt: nowIso(),
+    });
+
+    Object.assign(student, fields, {
+      totalAmount,
+      lastPaymentMethod: paymentMethod,
+      status: 'active',
+      updatedAt: nowIso(),
+    });
+
+    await this.save();
+    return this.normalizeStudent(student);
+  }
+
   async deleteStudent(id, ownerId) {
     const index = this.data.students.findIndex((s) => s.id === id && s.ownerId === ownerId);
     if (index === -1) {
@@ -811,6 +864,14 @@ function registerDatabaseHandlers(ipcMain) {
     guarded(async (session, _event, { id, ...payload }) => {
       const database = await getDatabase();
       return database.updateStudent(id, payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:fees:collect-renew',
+    guarded(async (session, _event, { studentId, ...payload }) => {
+      const database = await getDatabase();
+      return database.collectFeeAndRenew(studentId, payload, session.id);
     })
   );
 

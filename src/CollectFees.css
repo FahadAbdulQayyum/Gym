@@ -1,0 +1,256 @@
+.collect-fees {
+  flex: 1;
+  min-height: 0;
+}
+
+.collect-fees__message {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+}
+
+.collect-fees__message--error {
+  border: 1px solid rgba(245, 101, 101, 0.35);
+  background: rgba(61, 34, 40, 0.6);
+  color: #f8b4b4;
+}
+
+.collect-fees__message--success {
+  border: 1px solid rgba(212, 168, 75, 0.35);
+  background: rgba(50, 40, 20, 0.65);
+  color: #e8c56a;
+}
+
+.collect-fees__layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.collect-fees__panel-title {
+  margin: 0 0 16px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #f0f0f2;
+}
+
+.collect-fees__search {
+  padding: 20px 18px;
+  position: sticky;
+  top: 0;
+}
+
+.collect-fees__search-input {
+  width: 100%;
+  padding: 11px 13px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: rgba(0, 0, 0, 0.45);
+  color: #eef1f4;
+  font-size: 0.9rem;
+}
+
+.collect-fees__search-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+
+.collect-fees__results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+}
+
+.collect-fees__results li {
+  margin-bottom: 8px;
+}
+
+.collect-fees__result {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.35);
+  color: #e8e8ec;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.collect-fees__result:hover {
+  border-color: rgba(212, 168, 75, 0.35);
+  background: rgba(212, 168, 75, 0.06);
+}
+
+.collect-fees__result.is-selected {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: 0 0 0 1px rgba(212, 168, 75, 0.25);
+}
+
+.collect-fees__result-title {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #f5f5f7;
+  margin-bottom: 4px;
+}
+
+.collect-fees__result-meta {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.collect-fees__empty {
+  padding: 12px 0;
+  color: var(--text-subtle);
+  font-size: 0.88rem;
+}
+
+.collect-fees__form {
+  padding: 22px 24px 20px;
+}
+
+.collect-fees__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+}
+
+.collect-fees__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #c8c8d0;
+}
+
+.collect-fees__required {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.collect-fees__form input,
+.collect-fees__form select {
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: rgba(0, 0, 0, 0.45);
+  color: #eef1f4;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.collect-fees__form input:read-only {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.collect-fees__form select {
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #a0a0a8 50%),
+    linear-gradient(135deg, #a0a0a8 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% + 2px), calc(100% - 12px) calc(50% + 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+.collect-fees__form input:focus,
+.collect-fees__form select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+
+.collect-fees__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+  padding-top: 8px;
+}
+
+.collect-fees__total-box {
+  padding: 16px 22px;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  min-width: 180px;
+}
+
+.collect-fees__total-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.collect-fees__total-value {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #f5f5f7;
+  letter-spacing: 0.02em;
+}
+
+.collect-fees .btn-primary {
+  margin-top: 0;
+  padding: 12px 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #e8c56a 0%, #b8862e 100%);
+  color: #0a0a0c;
+  font-weight: 650;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(212, 168, 75, 0.3);
+}
+
+.collect-fees .btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.collect-fees .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .collect-fees__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .collect-fees__search {
+    position: static;
+  }
+
+  .collect-fees__results {
+    max-height: 240px;
+  }
+}
+
+@media (max-width: 640px) {
+  .collect-fees__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .collect-fees__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .collect-fees .btn-primary {
+    width: 100%;
+  }
+}

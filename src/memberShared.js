@@ -80,6 +80,11 @@ export function resolvePackageId(student, packages = DEFAULT_PACKAGES) {
   return packages[0]?.id ?? '';
 }
 
+export function memberDisplayLabel(member) {
+  const code = member.memberCode ?? '—';
+  return `#${code} — ${member.name ?? '—'}`;
+}
+
 export function memberMatchesQuery(member, query) {
   const q = query.trim().toLowerCase();
   if (!q) return true;
@@ -188,6 +193,25 @@ export function exportMembersCsv(rows) {
   link.download = `member-details-${todayInputValue()}.csv`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+export function buildCollectFeePayload(member, form, selectedPackage, totalAmount) {
+  return buildMemberPayload(
+    {
+      fullName: member.name ?? '',
+      registrationDate: member.registrationDate ?? member.entryDate ?? todayInputValue(),
+      phone: member.phone ?? '',
+      gender: member.gender ?? '',
+      address: member.address ?? '',
+      notes: member.notes ?? '',
+      status: 'active',
+      packageId: form.packageId,
+      packageStartDate: form.startFrom,
+      discount: form.discount,
+    },
+    selectedPackage,
+    { totalAmount }
+  );
 }
 
 export function buildMemberPayload(form, selectedPackage, options = {}) {

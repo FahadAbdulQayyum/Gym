@@ -31,6 +31,10 @@ contextBridge.exposeInMainWorld('gymApp', {
     update: (id, payload) => ipcRenderer.invoke('db:packages:update', { id, ...payload }),
     delete: (id) => ipcRenderer.invoke('db:packages:delete', { id }),
   },
+  fees: {
+    collectRenew: (studentId, payload) =>
+      ipcRenderer.invoke('db:fees:collect-renew', { studentId, ...payload }),
+  },
   students: {
     list: () => ipcRenderer.invoke('db:students:list'),
     create: (payload) => ipcRenderer.invoke('db:students:create', payload),
