@@ -96,7 +96,7 @@ function validatePin(pin) {
 class StudentDatabase {
   constructor() {
     this.filePath = null;
-    this.data = { students: [], packages: [], products: [], sales: [] };
+    this.data = { students: [], packages: [], products: [], sales: [], categories: [] };
   }
 
   async init() {
@@ -113,6 +113,7 @@ class StudentDatabase {
         packages: Array.isArray(parsed.packages) ? parsed.packages : [],
         products: Array.isArray(parsed.products) ? parsed.products : [],
         sales: Array.isArray(parsed.sales) ? parsed.sales : [],
+        categories: Array.isArray(parsed.categories) ? parsed.categories : [],
       };
       await this.ensureMemberCodes();
     } catch (error) {
@@ -302,6 +303,73 @@ class StudentDatabase {
     return { id };
   }
 
+  categoriesForOwner(ownerId) {
+    return this.data.categories.filter((c) => c.ownerId === ownerId);
+  }
+
+  getCategoryRecord(id, ownerId) {
+    return this.data.categories.find((c) => c.id === id && c.ownerId === ownerId) ?? null;
+  }
+
+  normalizeCategory(category) {
+    return {
+      id: category.id,
+      name: category.name,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
+    };
+  }
+
+  async listCategories(ownerId) {
+    return this.categoriesForOwner(ownerId)
+      .map((c) => this.normalizeCategory(c))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }
+
+  async createCategory(payload, ownerId) {
+    const name = String(payload.name ?? '').trim();
+    if (!name) {
+      throw new Error('Category name is required');
+    }
+
+    const duplicate = this.categoriesForOwner(ownerId).find(
+      (c) => c.name.toLowerCase() === name.toLowerCase()
+    );
+    if (duplicate) {
+      throw new Error('Category already exists');
+    }
+
+    const timestamp = nowIso();
+    const category = {
+      id: newId(),
+      ownerId,
+      name,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    this.data.categories.push(category);
+    await this.save();
+    return this.normalizeCategory(category);
+  }
+
+  async deleteCategory(id, ownerId) {
+    const category = this.getCategoryRecord(id, ownerId);
+    if (!category) {
+      throw new Error('Category not found');
+    }
+
+    const inUse = this.productsForOwner(ownerId).some((p) => p.categoryId === id);
+    if (inUse) {
+      throw new Error('Cannot delete: items use this category');
+    }
+
+    const index = this.data.categories.findIndex((c) => c.id === id && c.ownerId === ownerId);
+    this.data.categories.splice(index, 1);
+    await this.save();
+    return { id };
+  }
+
   productsForOwner(ownerId) {
     return this.data.products.filter((p) => p.ownerId === ownerId);
   }
@@ -320,7 +388,10 @@ class StudentDatabase {
       name: product.name,
       sku: product.sku ?? '',
       unit: product.unit ?? 'pcs',
+      categoryId: product.categoryId ?? null,
+      unitCost: product.unitCost ?? 0,
       unitPrice: product.unitPrice ?? 0,
+      minStock: product.minStock ?? 0,
       stockQty: product.stockQty ?? 0,
       active: product.active !== false,
       createdAt: product.createdAt,
@@ -328,7 +399,7 @@ class StudentDatabase {
     };
   }
 
-  validateProductInput(payload) {
+  validateProductInput(payload, ownerId) {
     const name = String(payload.name ?? '').trim();
     if (!name) {
       throw new Error('Product name is required');
@@ -339,8 +410,21 @@ class StudentDatabase {
       throw new Error('Unit price must be zero or greater');
     }
 
-    const stockQty = Number(payload.stockQty ?? payload.stock ?? 0);
-    if (!Number.isFinite(stockQty) || stockQty < 0) {
+    const unitCost = Number(payload.unitCost ?? 0);
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      throw new Error('Unit cost must be zero or greater');
+    }
+
+    const minStock = Number(payload.minStock ?? 0);
+    if (!Number.isFinite(minStock) || minStock < 0) {
+      throw new Error('Min stock must be zero or greater');
+    }
+
+    const stockQty =
+      payload.stockQty !== undefined || payload.stock !== undefined
+        ? Number(payload.stockQty ?? payload.stock ?? 0)
+        : undefined;
+    if (stockQty !== undefined && (!Number.isFinite(stockQty) || stockQty < 0)) {
       throw new Error('Stock must be zero or greater');
     }
 
@@ -348,9 +432,27 @@ class StudentDatabase {
       name,
       sku: String(payload.sku ?? '').trim(),
       unit: String(payload.unit ?? 'pcs').trim() || 'pcs',
+      unitCost: Math.round(unitCost),
       unitPrice: Math.round(unitPrice),
-      stockQty: Math.floor(stockQty),
+      minStock: Math.floor(minStock),
     };
+
+    if (stockQty !== undefined) {
+      result.stockQty = Math.floor(stockQty);
+    }
+
+    if (payload.categoryId !== undefined && payload.categoryId !== null && payload.categoryId !== '') {
+      const categoryId = String(payload.categoryId).trim();
+      if (categoryId && ownerId) {
+        const cat = this.getCategoryRecord(categoryId, ownerId);
+        if (!cat) {
+          throw new Error('Category not found');
+        }
+        result.categoryId = categoryId;
+      } else {
+        result.categoryId = null;
+      }
+    }
 
     if (payload.active !== undefined) {
       const activeRaw = payload.active;
@@ -366,7 +468,7 @@ class StudentDatabase {
     return result;
   }
 
-  async listProducts(ownerId, { inStockOnly = false, includeInactive = false } = {}) {
+  async listProducts(ownerId, { inStockOnly = false, includeInactive = false, categoryId } = {}) {
     let list = this.productsForOwner(ownerId);
     if (!includeInactive) {
       list = list.filter((p) => p.active !== false);
@@ -374,13 +476,16 @@ class StudentDatabase {
     if (inStockOnly) {
       list = list.filter((p) => (p.stockQty ?? 0) > 0);
     }
+    if (categoryId) {
+      list = list.filter((p) => p.categoryId === categoryId);
+    }
     return list
       .map((p) => this.normalizeProduct(p))
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   }
 
   async createProduct(payload, ownerId) {
-    const fields = this.validateProductInput(payload);
+    const fields = this.validateProductInput(payload, ownerId);
     const timestamp = nowIso();
     const active = fields.active !== undefined ? fields.active : true;
 
@@ -388,6 +493,7 @@ class StudentDatabase {
       id: newId(),
       ownerId,
       ...fields,
+      stockQty: fields.stockQty ?? 0,
       active,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -404,7 +510,10 @@ class StudentDatabase {
       throw new Error('Product not found');
     }
 
-    const fields = this.validateProductInput(payload);
+    const fields = this.validateProductInput(
+      { ...product, ...payload, stockQty: payload.stockQty ?? payload.stock ?? product.stockQty },
+      ownerId
+    );
     if (fields.active !== undefined) {
       product.active = fields.active;
     }
@@ -1020,6 +1129,30 @@ function registerDatabaseHandlers(ipcMain) {
       return handler(session, ...args);
     };
   }
+
+  ipcMain.handle(
+    'db:categories:list',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.listCategories(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:categories:create',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.createCategory(payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:categories:delete',
+    guarded(async (session, _event, { id }) => {
+      const database = await getDatabase();
+      return database.deleteCategory(id, session.id);
+    })
+  );
 
   ipcMain.handle(
     'db:products:list',

@@ -9,6 +9,7 @@ import AddPackages from './AddPackages';
 import CollectFees from './CollectFees';
 import FeesCollectionReport from './FeesCollectionReport';
 import POS from './POS';
+import Inventory from './Inventory';
 import StudentsDashboard from './StudentsDashboard';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
@@ -167,6 +168,9 @@ function MainContent({ activePage }) {
   }
   if (activePage === 'pos') {
     return <POS />;
+  }
+  if (activePage === 'inventory') {
+    return <Inventory />;
   }
   if (activePage === 'attendance') {
     return <StudentsDashboard />;

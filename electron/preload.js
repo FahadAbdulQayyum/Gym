@@ -25,6 +25,11 @@ contextBridge.exposeInMainWorld('gymApp', {
     logout: () => ipcRenderer.invoke('auth:logout'),
     getSession: () => ipcRenderer.invoke('auth:get-session'),
   },
+  categories: {
+    list: () => ipcRenderer.invoke('db:categories:list'),
+    create: (payload) => ipcRenderer.invoke('db:categories:create', payload),
+    delete: (id) => ipcRenderer.invoke('db:categories:delete', { id }),
+  },
   products: {
     list: (options) => ipcRenderer.invoke('db:products:list', options ?? {}),
     create: (payload) => ipcRenderer.invoke('db:products:create', payload),
