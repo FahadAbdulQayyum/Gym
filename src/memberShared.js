@@ -63,6 +63,106 @@ export function memberMatchesQuery(member, query) {
   return code.includes(q) || name.includes(q) || phone.includes(phoneQ);
 }
 
+export function memberRegistrationDate(member) {
+  return member.registrationDate ?? member.entryDate ?? '';
+}
+
+export function memberPackageLabel(member, packages = DEFAULT_PACKAGES) {
+  const id = resolvePackageId(member, packages);
+  const pkg = packages.find((p) => p.id === id);
+  return pkg?.label ?? member.packageId ?? '—';
+}
+
+export function memberPaidAmount(member, packages = DEFAULT_PACKAGES) {
+  if (member.totalAmount != null && Number.isFinite(member.totalAmount)) {
+    return member.totalAmount;
+  }
+  const id = resolvePackageId(member, packages);
+  const pkg = packages.find((p) => p.id === id);
+  const price = member.packagePrice ?? pkg?.price ?? 0;
+  const discount = parseAmount(member.discount);
+  return Math.max(0, price - discount);
+}
+
+export function memberNextExpiry(member, packages = DEFAULT_PACKAGES) {
+  const startRaw = member.packageStartDate ?? member.entryDate;
+  if (!startRaw) return '';
+
+  const id = resolvePackageId(member, packages);
+  const pkg = packages.find((p) => p.id === id);
+  const days = member.packageDays ?? pkg?.days ?? 0;
+  if (!days) return '';
+
+  const start = new Date(`${String(startRaw).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(start.getTime())) return '';
+
+  const expiry = new Date(start);
+  expiry.setDate(expiry.getDate() + days);
+  return expiry.toISOString().slice(0, 10);
+}
+
+export function memberToDetailsRow(member, index, packages = DEFAULT_PACKAGES) {
+  return {
+    srNo: index + 1,
+    memberId: member.memberCode ?? '—',
+    regDate: memberRegistrationDate(member),
+    name: member.name ?? '—',
+    contact: member.phone ?? '—',
+    package: memberPackageLabel(member, packages),
+    discount: parseAmount(member.discount),
+    paidAmount: memberPaidAmount(member, packages),
+    nextExpiry: memberNextExpiry(member, packages),
+    status: member.status ?? 'active',
+    gender: member.gender ?? '',
+  };
+}
+
+export function exportMembersCsv(rows) {
+  const headers = [
+    'SR.NO',
+    'Member ID',
+    'Reg Date',
+    'Name',
+    'Contact',
+    'Package',
+    'Discount',
+    'Paid Amount',
+    'Next Expiry',
+  ];
+  const escape = (value) => {
+    const text = String(value ?? '');
+    if (/[",\n]/.test(text)) {
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+  };
+  const lines = [
+    headers.join(','),
+    ...rows.map((row) =>
+      [
+        row.srNo,
+        row.memberId,
+        row.regDate,
+        row.name,
+        row.contact,
+        row.package,
+        row.discount,
+        row.paidAmount,
+        row.nextExpiry,
+      ]
+        .map(escape)
+        .join(',')
+    ),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `member-details-${todayInputValue()}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function buildMemberPayload(form, selectedPackage, options = {}) {
   const { includeFees = false, totalAmount } = options;
   const payload = {
