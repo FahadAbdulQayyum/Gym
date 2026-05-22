@@ -105,6 +105,51 @@ export function memberRegistrationDate(member) {
   return member.registrationDate ?? member.entryDate ?? '';
 }
 
+export function formatDisplayDate(iso) {
+  if (!iso) return '—';
+  const date = new Date(`${String(iso).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-US');
+}
+
+export function memberStartDate(member) {
+  return member.packageStartDate ?? member.entryDate ?? member.registrationDate ?? '';
+}
+
+export function memberRegistrationPaidAmount(member, packages = DEFAULT_PACKAGES) {
+  if (member.totalAmount != null && Number.isFinite(member.totalAmount)) {
+    return member.totalAmount;
+  }
+  const id = resolvePackageId(member, packages);
+  const pkg = packages.find((p) => p.id === id);
+  return member.packagePrice ?? pkg?.price ?? memberPaidAmount(member, packages);
+}
+
+export function memberToRegistrationRow(member, packages = DEFAULT_PACKAGES) {
+  return {
+    id: member.id,
+    memberId: member.memberCode ?? '—',
+    name: member.name ?? '—',
+    contact: member.phone ?? '—',
+    gender: member.gender || '—',
+    registrationDate: memberRegistrationDate(member),
+    registrationDateDisplay: formatDisplayDate(memberRegistrationDate(member)),
+    package: memberPackageLabel(member, packages),
+    discount: parseAmount(member.discount),
+    paidAmount: memberRegistrationPaidAmount(member, packages),
+    startDate: memberStartDate(member),
+    startDateDisplay: formatDisplayDate(memberStartDate(member)),
+    endDate: memberNextExpiry(member, packages),
+    endDateDisplay: formatDisplayDate(memberNextExpiry(member, packages)),
+  };
+}
+
+export function registrationMatchesDate(member, dateIso) {
+  if (!dateIso) return true;
+  const reg = memberRegistrationDate(member).slice(0, 10);
+  return reg === dateIso;
+}
+
 export function memberPackageLabel(member, packages = DEFAULT_PACKAGES) {
   const id = resolvePackageId(member, packages);
   const pkg = packages.find((p) => p.id === id);

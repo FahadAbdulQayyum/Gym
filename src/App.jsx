@@ -10,6 +10,7 @@ import CollectFees from './CollectFees';
 import FeesCollectionReport from './FeesCollectionReport';
 import POS from './POS';
 import Inventory from './Inventory';
+import DailyRegistrationReport from './DailyRegistrationReport';
 import StudentsDashboard from './StudentsDashboard';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
@@ -171,6 +172,9 @@ function MainContent({ activePage }) {
   }
   if (activePage === 'inventory') {
     return <Inventory />;
+  }
+  if (activePage === 'registration') {
+    return <DailyRegistrationReport />;
   }
   if (activePage === 'attendance') {
     return <StudentsDashboard />;
