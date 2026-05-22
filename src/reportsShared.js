@@ -95,8 +95,9 @@ export function computeProfitLoss({
 
   let assetsTotal = 0;
   for (const asset of assetPurchases) {
-    if (inDateRange(asset.date, from, to)) {
-      assetsTotal += Math.round(Number(asset.amount) || 0);
+    const assetDate = asset.purchaseDate ?? asset.date;
+    if (inDateRange(assetDate, from, to)) {
+      assetsTotal += Math.round(Number(asset.total) || Number(asset.amount) || 0);
     }
   }
 

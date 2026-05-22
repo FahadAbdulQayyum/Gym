@@ -1,0 +1,50 @@
+.assets-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.assets-page__top {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.assets-page__add-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.assets-page__add-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #c8c8d0;
+}
+
+.assets-page__add-form input,
+.assets-page__add-form select,
+.assets-page__add-form textarea {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: rgba(0, 0, 0, 0.45);
+  color: #eef1f4;
+  font-family: inherit;
+}
+
+.assets-page__note {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .assets-page__top {
+    grid-template-columns: 1fr;
+  }
+
+  .assets-page__add-form {
+    grid-template-columns: 1fr;
+  }
+}

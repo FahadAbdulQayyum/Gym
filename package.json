@@ -1,6 +1,6 @@
 {
   "name": "gym-app",
-  "version": "3.4.16",
+  "version": "3.4.17",
   "description": "Simple Gym desktop app",
   "main": "electron/main.js",
   "private": true,

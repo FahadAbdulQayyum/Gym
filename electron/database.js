@@ -106,6 +106,9 @@ class StudentDatabase {
       expenseHeads: [],
       expenses: [],
       assetPurchases: [],
+      assetHeads: [],
+      zk50Config: null,
+      zk50Scans: [],
     };
   }
 
@@ -128,6 +131,9 @@ class StudentDatabase {
         expenseHeads: Array.isArray(parsed.expenseHeads) ? parsed.expenseHeads : [],
         expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
         assetPurchases: Array.isArray(parsed.assetPurchases) ? parsed.assetPurchases : [],
+        assetHeads: Array.isArray(parsed.assetHeads) ? parsed.assetHeads : [],
+        zk50Config: parsed.zk50Config ?? null,
+        zk50Scans: Array.isArray(parsed.zk50Scans) ? parsed.zk50Scans : [],
       };
       await this.ensureMemberCodes();
     } catch (error) {
@@ -832,35 +838,239 @@ class StudentDatabase {
     return removed;
   }
 
+  assetHeadsForOwner(ownerId) {
+    return this.data.assetHeads.filter((h) => h.ownerId === ownerId);
+  }
+
+  getAssetHeadRecord(id, ownerId) {
+    return this.data.assetHeads.find((h) => h.id === id && h.ownerId === ownerId) ?? null;
+  }
+
+  async listAssetHeads(ownerId) {
+    return this.assetHeadsForOwner(ownerId)
+      .map((h) => ({ id: h.id, name: h.name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }
+
+  async createAssetHead(payload, ownerId) {
+    const name = String(payload.name ?? '').trim();
+    if (!name) throw new Error('Head name is required');
+    const dup = this.assetHeadsForOwner(ownerId).find(
+      (h) => h.name.toLowerCase() === name.toLowerCase()
+    );
+    if (dup) throw new Error('Head already exists');
+    const head = { id: newId(), ownerId, name, createdAt: nowIso(), updatedAt: nowIso() };
+    this.data.assetHeads.push(head);
+    await this.save();
+    return { id: head.id, name: head.name };
+  }
+
+  async updateAssetHead(id, payload, ownerId) {
+    const head = this.getAssetHeadRecord(id, ownerId);
+    if (!head) throw new Error('Head not found');
+    const name = String(payload.name ?? '').trim();
+    if (!name) throw new Error('Head name is required');
+    head.name = name;
+    head.updatedAt = nowIso();
+    await this.save();
+    return { id: head.id, name: head.name };
+  }
+
+  async deleteAssetHead(id, ownerId) {
+    const head = this.getAssetHeadRecord(id, ownerId);
+    if (!head) throw new Error('Head not found');
+    const inUse = this.data.assetPurchases.some((p) => p.headId === id && p.ownerId === ownerId);
+    if (inUse) throw new Error('Cannot delete: purchases use this head');
+    const index = this.data.assetHeads.findIndex((h) => h.id === id && h.ownerId === ownerId);
+    this.data.assetHeads.splice(index, 1);
+    await this.save();
+    return { id };
+  }
+
   assetPurchasesForOwner(ownerId) {
     return this.data.assetPurchases.filter((a) => a.ownerId === ownerId);
   }
 
+  normalizeAssetPurchase(record) {
+    const qty = Math.max(1, Math.floor(Number(record.qty) || 1));
+    const unitCost = Math.round(Number(record.unitCost ?? record.amount) || 0);
+    const total = record.total != null ? Math.round(record.total) : qty * unitCost;
+    return {
+      id: record.id,
+      headId: record.headId ?? null,
+      itemName: record.itemName ?? record.description ?? '',
+      vendor: record.vendor ?? '',
+      qty,
+      unitCost,
+      total,
+      purchaseDate: record.purchaseDate ?? record.date ?? '',
+      warrantyTill: record.warrantyTill ?? '',
+      note: record.note ?? '',
+      createdAt: record.createdAt,
+    };
+  }
+
   async listAssetPurchases(ownerId) {
     return this.assetPurchasesForOwner(ownerId)
-      .map((a) => ({ ...a }))
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .map((a) => this.normalizeAssetPurchase(a))
+      .sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate));
   }
 
   async createAssetPurchase(payload, ownerId) {
-    const amount = Number(payload.amount);
-    if (!Number.isFinite(amount) || amount < 0) throw new Error('Amount must be zero or greater');
-    const dateRaw = payload.date ?? nowIso().slice(0, 10);
-    const date = new Date(dateRaw);
-    if (Number.isNaN(date.getTime())) throw new Error('Date is invalid');
+    const headId = String(payload.headId ?? '').trim();
+    if (!headId || !this.getAssetHeadRecord(headId, ownerId)) {
+      throw new Error('Asset head is required');
+    }
+    const itemName = String(payload.itemName ?? '').trim();
+    if (!itemName) throw new Error('Item name is required');
 
+    const qty = Math.max(1, Math.floor(Number(payload.qty) || 1));
+    const unitCost = Number(payload.unitCost);
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      throw new Error('Unit cost must be zero or greater');
+    }
+
+    const purchaseRaw = payload.purchaseDate ?? payload.date ?? nowIso().slice(0, 10);
+    const purchaseDate = new Date(purchaseRaw);
+    if (Number.isNaN(purchaseDate.getTime())) throw new Error('Purchase date is invalid');
+
+    let warrantyTill = '';
+    if (payload.warrantyTill) {
+      const w = new Date(payload.warrantyTill);
+      if (!Number.isNaN(w.getTime())) warrantyTill = w.toISOString().slice(0, 10);
+    }
+
+    const unitRounded = Math.round(unitCost);
     const record = {
       id: newId(),
       ownerId,
-      description: String(payload.description ?? '').trim(),
-      amount: Math.round(amount),
-      date: date.toISOString().slice(0, 10),
+      headId,
+      itemName,
+      vendor: String(payload.vendor ?? '').trim(),
+      qty,
+      unitCost: unitRounded,
+      total: qty * unitRounded,
+      purchaseDate: purchaseDate.toISOString().slice(0, 10),
+      warrantyTill,
       note: String(payload.note ?? '').trim(),
       createdAt: nowIso(),
     };
     this.data.assetPurchases.push(record);
     await this.save();
-    return record;
+    return this.normalizeAssetPurchase(record);
+  }
+
+  async deleteAssetPurchase(id, ownerId) {
+    const index = this.data.assetPurchases.findIndex((p) => p.id === id && p.ownerId === ownerId);
+    if (index === -1) throw new Error('Purchase not found');
+    const [removed] = this.data.assetPurchases.splice(index, 1);
+    await this.save();
+    return this.normalizeAssetPurchase(removed);
+  }
+
+  getZk50Config(ownerId) {
+    const cfg = this.data.zk50Config;
+    if (!cfg || cfg.ownerId !== ownerId) {
+      return {
+        mode: 'manual',
+        ip: '192.168.10.21',
+        port: 4370,
+        connected: false,
+        realtimeOn: false,
+      };
+    }
+    return {
+      mode: cfg.mode ?? 'manual',
+      ip: cfg.ip ?? '192.168.10.21',
+      port: cfg.port ?? 4370,
+      connected: !!cfg.connected,
+      realtimeOn: !!cfg.realtimeOn,
+    };
+  }
+
+  async saveZk50Config(payload, ownerId) {
+    this.data.zk50Config = {
+      ownerId,
+      mode: payload.mode === 'auto' ? 'auto' : 'manual',
+      ip: String(payload.ip ?? '').trim() || '192.168.10.21',
+      port: Math.max(1, Math.min(65535, Math.floor(Number(payload.port) || 4370))),
+      connected: !!payload.connected,
+      realtimeOn: !!payload.realtimeOn,
+      updatedAt: nowIso(),
+    };
+    await this.save({ skipSync: true });
+    return this.getZk50Config(ownerId);
+  }
+
+  async connectZk50(ownerId) {
+    const cfg = this.getZk50Config(ownerId);
+    const ip = String(cfg.ip ?? '').trim();
+    if (!ip) throw new Error('Device IP is required');
+
+    this.data.zk50Config = {
+      ownerId,
+      mode: cfg.mode,
+      ip,
+      port: cfg.port,
+      connected: true,
+      realtimeOn: true,
+      updatedAt: nowIso(),
+    };
+    await this.save({ skipSync: true });
+    return this.getZk50Config(ownerId);
+  }
+
+  async disconnectZk50(ownerId) {
+    const cfg = this.getZk50Config(ownerId);
+    this.data.zk50Config = {
+      ownerId,
+      mode: cfg.mode,
+      ip: cfg.ip,
+      port: cfg.port,
+      connected: false,
+      realtimeOn: false,
+      updatedAt: nowIso(),
+    };
+    await this.save({ skipSync: true });
+    return this.getZk50Config(ownerId);
+  }
+
+  zk50ScansForOwner(ownerId) {
+    return (this.data.zk50Scans ?? []).filter((s) => s.ownerId === ownerId);
+  }
+
+  async listZk50Scans(ownerId, limit = 100) {
+    return this.zk50ScansForOwner(ownerId)
+      .sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime())
+      .slice(0, limit);
+  }
+
+  async addZk50Scan(payload, ownerId) {
+    const scan = {
+      id: newId(),
+      ownerId,
+      memberCode: payload.memberCode ?? null,
+      name: payload.name ?? 'Unknown',
+      allowed: payload.allowed !== false,
+      scannedAt: nowIso(),
+      method: 'zk50',
+    };
+    if (!Array.isArray(this.data.zk50Scans)) this.data.zk50Scans = [];
+    this.data.zk50Scans.unshift(scan);
+    if (this.data.zk50Scans.length > 500) {
+      this.data.zk50Scans = this.data.zk50Scans.slice(0, 500);
+    }
+    await this.save({ skipSync: true });
+
+    if (scan.allowed && payload.memberCode) {
+      try {
+        await this.checkInByMemberCode(payload.memberCode, ownerId);
+      } catch {
+        /* member not found — scan still logged */
+      }
+    }
+
+    return scan;
   }
 
   async migrateOrphanStudents(users = []) {
@@ -1501,10 +1711,99 @@ function registerDatabaseHandlers(ipcMain) {
   );
 
   ipcMain.handle(
+    'db:asset-heads:list',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.listAssetHeads(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:asset-heads:create',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.createAssetHead(payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:asset-heads:update',
+    guarded(async (session, _event, { id, ...payload }) => {
+      const database = await getDatabase();
+      return database.updateAssetHead(id, payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:asset-heads:delete',
+    guarded(async (session, _event, { id }) => {
+      const database = await getDatabase();
+      return database.deleteAssetHead(id, session.id);
+    })
+  );
+
+  ipcMain.handle(
     'db:assets:list',
     guarded(async (session) => {
       const database = await getDatabase();
       return database.listAssetPurchases(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:assets:create',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.createAssetPurchase(payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:assets:delete',
+    guarded(async (session, _event, { id }) => {
+      const database = await getDatabase();
+      return database.deleteAssetPurchase(id, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:zk50:get-config',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.getZk50Config(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:zk50:save-config',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.saveZk50Config(payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:zk50:connect',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      await database.saveZk50Config(payload, session.id);
+      return database.connectZk50(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:zk50:disconnect',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.disconnectZk50(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:zk50:list-scans',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.listZk50Scans(session.id);
     })
   );
 

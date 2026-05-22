@@ -16,6 +16,8 @@ import FeesExpiring from './FeesExpiring';
 import AddTrainers from './AddTrainers';
 import Expenses from './Expenses';
 import DailyAttendance from './DailyAttendance';
+import SetupZK50 from './SetupZK50';
+import PurchaseGymAssets from './PurchaseGymAssets';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
 import './App.css';
@@ -194,6 +196,12 @@ function MainContent({ activePage }) {
   }
   if (activePage === 'attendance') {
     return <DailyAttendance />;
+  }
+  if (activePage === 'zk50') {
+    return <SetupZK50 />;
+  }
+  if (activePage === 'assets') {
+    return <PurchaseGymAssets />;
   }
   return <PlaceholderView title={PAGE_LABELS[activePage] ?? activePage} />;
 }

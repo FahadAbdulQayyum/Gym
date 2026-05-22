@@ -59,8 +59,23 @@ contextBridge.exposeInMainWorld('gymApp', {
     create: (payload) => ipcRenderer.invoke('db:expenses:create', payload),
     delete: (id) => ipcRenderer.invoke('db:expenses:delete', { id }),
   },
+  assetHeads: {
+    list: () => ipcRenderer.invoke('db:asset-heads:list'),
+    create: (payload) => ipcRenderer.invoke('db:asset-heads:create', payload),
+    update: (id, payload) => ipcRenderer.invoke('db:asset-heads:update', { id, ...payload }),
+    delete: (id) => ipcRenderer.invoke('db:asset-heads:delete', { id }),
+  },
   assets: {
     list: () => ipcRenderer.invoke('db:assets:list'),
+    create: (payload) => ipcRenderer.invoke('db:assets:create', payload),
+    delete: (id) => ipcRenderer.invoke('db:assets:delete', { id }),
+  },
+  zk50: {
+    getConfig: () => ipcRenderer.invoke('db:zk50:get-config'),
+    saveConfig: (payload) => ipcRenderer.invoke('db:zk50:save-config', payload),
+    connect: (payload) => ipcRenderer.invoke('db:zk50:connect', payload),
+    disconnect: () => ipcRenderer.invoke('db:zk50:disconnect'),
+    listScans: () => ipcRenderer.invoke('db:zk50:list-scans'),
   },
   packages: {
     list: (options) => ipcRenderer.invoke('db:packages:list', options ?? {}),
