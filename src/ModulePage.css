@@ -173,3 +173,28 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+.module-page .btn-secondary {
+  padding: 12px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  background: rgba(40, 40, 48, 0.9);
+  color: #e8e8ec;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.module-page .btn-secondary:hover:not(:disabled) {
+  border-color: rgba(212, 168, 75, 0.45);
+}
+
+.module-page .btn-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.module-page .btn-secondary--compact {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}

@@ -109,6 +109,7 @@ class StudentDatabase {
       assetHeads: [],
       zk50Config: null,
       zk50Scans: [],
+      brandingByOwner: {},
     };
   }
 
@@ -134,6 +135,10 @@ class StudentDatabase {
         assetHeads: Array.isArray(parsed.assetHeads) ? parsed.assetHeads : [],
         zk50Config: parsed.zk50Config ?? null,
         zk50Scans: Array.isArray(parsed.zk50Scans) ? parsed.zk50Scans : [],
+        brandingByOwner:
+          parsed.brandingByOwner && typeof parsed.brandingByOwner === 'object'
+            ? parsed.brandingByOwner
+            : {},
       };
       await this.ensureMemberCodes();
     } catch (error) {
@@ -1560,6 +1565,41 @@ class StudentDatabase {
     await this.save();
     return { student, record: removed };
   }
+
+  defaultBranding() {
+    return {
+      gymName: '',
+      phone: '',
+      email: '',
+      address: '',
+      logoUrl: '',
+      footerNote: 'Thank you for your fitness journey with us!',
+    };
+  }
+
+  getBranding(ownerId) {
+    const stored = this.data.brandingByOwner?.[ownerId];
+    return { ...this.defaultBranding(), ...(stored ?? {}) };
+  }
+
+  async saveBranding(ownerId, payload) {
+    if (!this.data.brandingByOwner) {
+      this.data.brandingByOwner = {};
+    }
+    const current = this.getBranding(ownerId);
+    const next = {
+      gymName: String(payload.gymName ?? current.gymName).trim(),
+      phone: String(payload.phone ?? current.phone).trim(),
+      email: String(payload.email ?? current.email).trim(),
+      address: String(payload.address ?? current.address).trim(),
+      logoUrl: String(payload.logoUrl ?? current.logoUrl).trim(),
+      footerNote: String(payload.footerNote ?? current.footerNote).trim(),
+      updatedAt: nowIso(),
+    };
+    this.data.brandingByOwner[ownerId] = next;
+    await this.save();
+    return next;
+  }
 }
 
 let persistHook = null;
@@ -1988,6 +2028,22 @@ function registerDatabaseHandlers(ipcMain) {
     guarded(async (session, _event, { pin }) => {
       const database = await getDatabase();
       return database.checkInByPin(pin, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:branding:get',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.getBranding(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:branding:save',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.saveBranding(session.id, payload ?? {});
     })
   );
 }

@@ -24,6 +24,13 @@ contextBridge.exposeInMainWorld('gymApp', {
     signup: (username, password) => ipcRenderer.invoke('auth:signup', { username, password }),
     logout: () => ipcRenderer.invoke('auth:logout'),
     getSession: () => ipcRenderer.invoke('auth:get-session'),
+    listUsers: () => ipcRenderer.invoke('auth:list-users'),
+    createUser: (payload) => ipcRenderer.invoke('auth:create-user', payload),
+    deleteUser: (id) => ipcRenderer.invoke('auth:delete-user', { id }),
+  },
+  branding: {
+    get: () => ipcRenderer.invoke('db:branding:get'),
+    save: (payload) => ipcRenderer.invoke('db:branding:save', payload),
   },
   categories: {
     list: () => ipcRenderer.invoke('db:categories:list'),

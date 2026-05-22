@@ -128,6 +128,7 @@ class UserDatabase {
       passwordSalt: salt,
       passwordHash: hash,
       role: 'admin',
+      permissions: [],
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -178,8 +179,93 @@ class UserDatabase {
     return {
       id: user.id,
       username: user.username,
-      role: user.role,
+      role: user.role ?? 'staff',
+      permissions: Array.isArray(user.permissions) ? user.permissions : [],
     };
+  }
+
+  requireAdmin(session) {
+    if (session.role !== 'admin') {
+      throw new Error('Only administrators can manage users');
+    }
+  }
+
+  listAppUsers() {
+    return this.data.users.map((user) => ({
+      id: user.id,
+      username: user.username,
+      role: user.role ?? 'staff',
+      permissions: Array.isArray(user.permissions) ? user.permissions : [],
+      createdAt: user.createdAt,
+    }));
+  }
+
+  async createAppUser({ username, password, role, permissions }, actorSession) {
+    this.requireAdmin(actorSession);
+    const normalized = this.validateUsername(username);
+    const validPassword = this.validatePassword(password);
+
+    if (normalized === 'admin') {
+      throw new Error('Username "admin" is reserved');
+    }
+
+    if (this.findUserByUsername(normalized)) {
+      throw new Error(`Username "${normalized}" is already in use`);
+    }
+
+    const normalizedRole = String(role ?? 'staff').trim().toLowerCase() === 'admin' ? 'admin' : 'staff';
+    const permissionList = Array.isArray(permissions)
+      ? [...new Set(permissions.map((p) => String(p).trim()).filter(Boolean))]
+      : [];
+
+    const timestamp = nowIso();
+    const { salt, hash } = hashPassword(validPassword);
+    const user = {
+      id: newId(),
+      username: normalized,
+      passwordSalt: salt,
+      passwordHash: hash,
+      role: normalizedRole,
+      permissions: normalizedRole === 'admin' ? [] : permissionList,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    this.data.users.push(user);
+    await this.save({ skipSync: true });
+    return this.listAppUsers().find((entry) => entry.id === user.id);
+  }
+
+  async deleteAppUser(userId, actorSession) {
+    this.requireAdmin(actorSession);
+
+    const id = String(userId ?? '').trim();
+    if (!id) {
+      throw new Error('User id is required');
+    }
+
+    if (actorSession.id === id) {
+      throw new Error('You cannot delete your own account while signed in');
+    }
+
+    const index = this.data.users.findIndex((user) => user.id === id);
+    if (index === -1) {
+      throw new Error('User not found');
+    }
+
+    const target = this.data.users[index];
+    if (target.username === 'admin') {
+      throw new Error('The default admin account cannot be deleted');
+    }
+
+    const admins = this.data.users.filter((user) => user.role === 'admin');
+    if (target.role === 'admin' && admins.length <= 1) {
+      throw new Error('Cannot delete the only administrator');
+    }
+
+    this.data.users.splice(index, 1);
+    await this.save({ skipSync: true });
+    return { deletedId: id };
   }
 
   getSession() {
@@ -274,6 +360,7 @@ class UserDatabase {
       passwordSalt: salt,
       passwordHash: hash,
       role: 'staff',
+      permissions: [],
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -460,6 +547,25 @@ function registerAuthHandlers(ipcMain) {
   ipcMain.handle('auth:get-session', async () => {
     const database = await getAuth();
     return database.getSession();
+  });
+
+  ipcMain.handle('auth:list-users', async () => {
+    const database = await getAuth();
+    const session = database.requireSession();
+    database.requireAdmin(session);
+    return database.listAppUsers();
+  });
+
+  ipcMain.handle('auth:create-user', async (_event, payload) => {
+    const database = await getAuth();
+    const session = database.requireSession();
+    return database.createAppUser(payload ?? {}, session);
+  });
+
+  ipcMain.handle('auth:delete-user', async (_event, { id }) => {
+    const database = await getAuth();
+    const session = database.requireSession();
+    return database.deleteAppUser(id, session);
   });
 }
 

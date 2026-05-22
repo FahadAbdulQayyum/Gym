@@ -1,3 +1,5 @@
+import { filterNavItems } from './permissionsShared';
+
 const NAV_PRIMARY = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'add-member', label: 'Add Member' },
@@ -27,13 +29,16 @@ const NAV_UTILITY = [
   { id: 'backup', label: 'Get Software Backup' },
   { id: 'branding', label: 'Gym Branding' },
   { id: 'roles', label: 'User Roles' },
+  { id: 'daily-sales', label: 'Daily Sales Report' },
 ];
 
 function NavGroup({ items, activeId, onNavigate }) {
+  if (!items.length) return null;
+
   return (
     <ul className="sidebar-nav">
       {items.map((item) => (
-        <li key={item.label}>
+        <li key={item.id}>
           <button
             type="button"
             className={`sidebar-nav__link${activeId === item.id ? ' is-active' : ''}`}
@@ -48,7 +53,11 @@ function NavGroup({ items, activeId, onNavigate }) {
   );
 }
 
-export default function AppSidebar({ activeId, onNavigate, brandName = 'Gym' }) {
+export default function AppSidebar({ activeId, onNavigate, brandName = 'Gym', session }) {
+  const primary = filterNavItems(NAV_PRIMARY, session);
+  const secondary = filterNavItems(NAV_SECONDARY, session);
+  const utility = filterNavItems(NAV_UTILITY, session);
+
   return (
     <aside className="app-sidebar">
       <div className="sidebar-brand">
@@ -62,11 +71,19 @@ export default function AppSidebar({ activeId, onNavigate, brandName = 'Gym' }) 
       </div>
 
       <nav className="sidebar-nav-wrap" aria-label="Main">
-        <NavGroup items={NAV_PRIMARY} activeId={activeId} onNavigate={onNavigate} />
-        <hr className="sidebar-divider" />
-        <NavGroup items={NAV_SECONDARY} activeId={activeId} onNavigate={onNavigate} />
-        <hr className="sidebar-divider" />
-        <NavGroup items={NAV_UTILITY} activeId={activeId} onNavigate={onNavigate} />
+        <NavGroup items={primary} activeId={activeId} onNavigate={onNavigate} />
+        {secondary.length > 0 && (
+          <>
+            <hr className="sidebar-divider" />
+            <NavGroup items={secondary} activeId={activeId} onNavigate={onNavigate} />
+          </>
+        )}
+        {utility.length > 0 && (
+          <>
+            <hr className="sidebar-divider" />
+            <NavGroup items={utility} activeId={activeId} onNavigate={onNavigate} />
+          </>
+        )}
       </nav>
     </aside>
   );

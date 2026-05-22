@@ -13,6 +13,7 @@ import {
   todayInputValue,
 } from './memberShared';
 import { usePackages } from './usePackages';
+import { normalizeBranding, printFeeReceipt } from './brandingShared';
 import './CollectFees.css';
 
 function emptyFeeForm() {
@@ -159,6 +160,18 @@ export default function CollectFees() {
       } else {
         await api.update(selectedId, payload);
       }
+
+      const brandingApi = window.gymApp?.branding;
+      const branding = normalizeBranding(
+        brandingApi?.get ? await brandingApi.get() : null
+      );
+      printFeeReceipt({
+        branding,
+        member: selectedMember,
+        amount: totalAmount,
+        paymentMethod: form.paymentMethod,
+        collectedAt: new Date().toISOString(),
+      });
 
       setSuccess(`Collected ${formatRs(totalAmount)} for ${selectedMember.name}. Membership renewed.`);
       await loadMembers();

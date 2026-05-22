@@ -18,8 +18,12 @@ import Expenses from './Expenses';
 import DailyAttendance from './DailyAttendance';
 import SetupZK50 from './SetupZK50';
 import PurchaseGymAssets from './PurchaseGymAssets';
+import GymBranding from './GymBranding';
+import UserRoles from './UserRoles';
+import DailySalesReport from './DailySalesReport';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
+import { userCanAccess } from './permissionsShared';
 import './App.css';
 
 const PAGE_LABELS = {
@@ -45,6 +49,7 @@ const PAGE_LABELS = {
   backup: 'Get Software Backup',
   branding: 'Gym Branding',
   roles: 'User Roles',
+  'daily-sales': 'Daily Sales Report',
 };
 
 function SyncBanner({ sync, onSyncNow }) {
@@ -151,7 +156,7 @@ function AuthNotice({ message, onDismiss }) {
   );
 }
 
-function MainContent({ activePage }) {
+function MainContent({ activePage, session }) {
   if (activePage === 'dashboard') {
     return <Dashboard />;
   }
@@ -203,12 +208,32 @@ function MainContent({ activePage }) {
   if (activePage === 'assets') {
     return <PurchaseGymAssets />;
   }
+  if (activePage === 'branding') {
+    return <GymBranding />;
+  }
+  if (activePage === 'roles') {
+    return <UserRoles session={session} />;
+  }
+  if (activePage === 'daily-sales') {
+    return <DailySalesReport />;
+  }
   return <PlaceholderView title={PAGE_LABELS[activePage] ?? activePage} />;
 }
 
 function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
   const [activePage, setActivePage] = useState('dashboard');
   const [appVersion, setAppVersion] = useState('');
+
+  useEffect(() => {
+    if (userCanAccess(session, activePage)) return;
+    const fallback =
+      ['dashboard', 'add-member', 'fees', 'edit-members'].find((id) =>
+        userCanAccess(session, id)
+      ) ?? 'dashboard';
+    if (fallback !== activePage) {
+      setActivePage(fallback);
+    }
+  }, [session, activePage]);
   const [update, setUpdate] = useState(null);
   const [sync, setSync] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -266,7 +291,7 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
 
   return (
     <div className="app app--shell">
-      <AppSidebar activeId={activePage} onNavigate={setActivePage} />
+      <AppSidebar activeId={activePage} onNavigate={setActivePage} session={session} />
 
       <div className="app-main">
         <AuthNotice message={authNotice} onDismiss={onDismissAuthNotice} />
@@ -307,7 +332,7 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
         </header>
 
         <main className="app-content" key={`${session.id}-${activePage}`}>
-          <MainContent activePage={activePage} />
+          <MainContent activePage={activePage} session={session} />
         </main>
 
         <footer className="footer">

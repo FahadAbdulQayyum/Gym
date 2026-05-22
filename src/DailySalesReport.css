@@ -1,0 +1,155 @@
+.daily-sales__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.daily-sales__title {
+  margin: 0;
+}
+
+.daily-sales__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.daily-sales__date {
+  width: auto;
+  min-width: 150px;
+}
+
+.daily-sales__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+  position: relative;
+}
+
+.daily-sales__logo {
+  width: 32px;
+  height: 32px;
+  background: #111;
+  color: var(--gold, #d4a84b);
+  border: 1px solid rgba(212, 168, 75, 0.4);
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.daily-sales__gym {
+  display: block;
+  font-size: 1.05rem;
+  color: #f0f0f2;
+}
+
+.daily-sales__subtitle {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: #9a9aa8;
+}
+
+.daily-sales__meta {
+  position: absolute;
+  right: 0;
+  top: 0;
+  font-size: 0.85rem;
+  color: #b8b8c0;
+}
+
+.daily-sales__cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.daily-sales__card {
+  background: rgba(20, 20, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 10px);
+  padding: 14px 16px;
+}
+
+.daily-sales__card--total {
+  border-color: rgba(212, 168, 75, 0.55);
+  box-shadow: 0 0 0 1px rgba(212, 168, 75, 0.2);
+}
+
+.daily-sales__card-label {
+  display: block;
+  font-size: 0.78rem;
+  color: #9a9aa8;
+  margin-bottom: 6px;
+}
+
+.daily-sales__card strong {
+  font-size: 1rem;
+  color: #f5f5f7;
+}
+
+.daily-sales__section-title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: #f0f0f2;
+}
+
+.daily-sales__table-wrap {
+  background: rgba(20, 20, 28, 0.6);
+  border-radius: var(--radius-md, 10px);
+  padding: 12px 14px;
+}
+
+.daily-sales__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.daily-sales__table th {
+  text-align: left;
+  color: var(--gold, #d4a84b);
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(212, 168, 75, 0.25);
+}
+
+.daily-sales__table td {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #e8e8ec;
+}
+
+.daily-sales__footer {
+  margin: 28px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #7a7a88;
+}
+
+@media (max-width: 900px) {
+  .daily-sales__cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .daily-sales__meta {
+    position: static;
+    width: 100%;
+    text-align: center;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 520px) {
+  .daily-sales__cards {
+    grid-template-columns: 1fr;
+  }
+}

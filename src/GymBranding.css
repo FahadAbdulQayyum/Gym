@@ -1,0 +1,99 @@
+.gym-branding__layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(260px, 340px);
+  gap: 20px;
+  align-items: start;
+}
+
+.gym-branding__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: #c8c8d0;
+}
+
+.gym-branding__textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.gym-branding__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.gym-branding__preview {
+  position: sticky;
+  top: 12px;
+}
+
+.gym-branding__receipt {
+  background: #fff;
+  color: #111;
+  border-radius: 8px;
+  padding: 20px 18px;
+  min-height: 180px;
+}
+
+.gym-branding__receipt-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gym-branding__receipt-logo {
+  width: 36px;
+  height: 36px;
+  background: #111;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.gym-branding__receipt-logo-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.gym-branding__receipt-head strong {
+  font-size: 1rem;
+}
+
+.gym-branding__receipt-rule {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 14px 0;
+}
+
+.gym-branding__receipt-footer {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #333;
+  text-align: center;
+}
+
+.gym-branding__note {
+  margin: 14px 0 0;
+  font-size: 0.8rem;
+  color: #9a9aa8;
+}
+
+@media (max-width: 900px) {
+  .gym-branding__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .gym-branding__preview {
+    position: static;
+  }
+}
