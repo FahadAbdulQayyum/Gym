@@ -1,0 +1,22 @@
+.daily-attendance__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.daily-attendance__toolbar .module-input {
+  width: auto;
+  min-width: 120px;
+  margin-bottom: 0;
+}
+
+.daily-attendance__search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.daily-attendance__sync {
+  white-space: nowrap;
+}

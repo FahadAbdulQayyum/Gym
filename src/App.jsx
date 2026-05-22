@@ -11,7 +11,11 @@ import FeesCollectionReport from './FeesCollectionReport';
 import POS from './POS';
 import Inventory from './Inventory';
 import DailyRegistrationReport from './DailyRegistrationReport';
-import StudentsDashboard from './StudentsDashboard';
+import Reports from './Reports';
+import FeesExpiring from './FeesExpiring';
+import AddTrainers from './AddTrainers';
+import Expenses from './Expenses';
+import DailyAttendance from './DailyAttendance';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
 import './App.css';
@@ -176,8 +180,20 @@ function MainContent({ activePage }) {
   if (activePage === 'registration') {
     return <DailyRegistrationReport />;
   }
+  if (activePage === 'reports') {
+    return <Reports />;
+  }
+  if (activePage === 'fees-expire') {
+    return <FeesExpiring />;
+  }
+  if (activePage === 'trainers') {
+    return <AddTrainers />;
+  }
+  if (activePage === 'expenses') {
+    return <Expenses />;
+  }
   if (activePage === 'attendance') {
-    return <StudentsDashboard />;
+    return <DailyAttendance />;
   }
   return <PlaceholderView title={PAGE_LABELS[activePage] ?? activePage} />;
 }

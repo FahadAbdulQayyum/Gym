@@ -96,7 +96,17 @@ function validatePin(pin) {
 class StudentDatabase {
   constructor() {
     this.filePath = null;
-    this.data = { students: [], packages: [], products: [], sales: [], categories: [] };
+    this.data = {
+      students: [],
+      packages: [],
+      products: [],
+      sales: [],
+      categories: [],
+      trainers: [],
+      expenseHeads: [],
+      expenses: [],
+      assetPurchases: [],
+    };
   }
 
   async init() {
@@ -114,6 +124,10 @@ class StudentDatabase {
         products: Array.isArray(parsed.products) ? parsed.products : [],
         sales: Array.isArray(parsed.sales) ? parsed.sales : [],
         categories: Array.isArray(parsed.categories) ? parsed.categories : [],
+        trainers: Array.isArray(parsed.trainers) ? parsed.trainers : [],
+        expenseHeads: Array.isArray(parsed.expenseHeads) ? parsed.expenseHeads : [],
+        expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+        assetPurchases: Array.isArray(parsed.assetPurchases) ? parsed.assetPurchases : [],
       };
       await this.ensureMemberCodes();
     } catch (error) {
@@ -611,6 +625,242 @@ class StudentDatabase {
     this.data.sales.push(sale);
     await this.save();
     return sale;
+  }
+
+  async listSales(ownerId) {
+    return this.salesForOwner(ownerId)
+      .map((sale) => ({ ...sale }))
+      .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
+  }
+
+  trainersForOwner(ownerId) {
+    return this.data.trainers.filter((t) => t.ownerId === ownerId);
+  }
+
+  getTrainerRecord(id, ownerId) {
+    return this.data.trainers.find((t) => t.id === id && t.ownerId === ownerId) ?? null;
+  }
+
+  normalizeTrainer(trainer) {
+    return {
+      id: trainer.id,
+      fullName: trainer.fullName,
+      phone: trainer.phone ?? '',
+      email: trainer.email ?? '',
+      monthlySalary: trainer.monthlySalary ?? 0,
+      active: trainer.active !== false,
+      createdAt: trainer.createdAt,
+      updatedAt: trainer.updatedAt,
+    };
+  }
+
+  validateTrainerInput(payload) {
+    const fullName = String(payload.fullName ?? payload.name ?? '').trim();
+    if (!fullName) throw new Error('Full name is required');
+
+    const salary = Number(payload.monthlySalary ?? 0);
+    if (!Number.isFinite(salary) || salary < 0) {
+      throw new Error('Monthly salary must be zero or greater');
+    }
+
+    const result = {
+      fullName,
+      phone: String(payload.phone ?? '').trim(),
+      email: String(payload.email ?? '').trim(),
+      monthlySalary: Math.round(salary),
+    };
+
+    if (payload.active !== undefined) {
+      const activeRaw = payload.active;
+      result.active =
+        activeRaw === true ||
+        activeRaw === 'true' ||
+        activeRaw === 'yes' ||
+        activeRaw === 'Yes' ||
+        activeRaw === 1 ||
+        activeRaw === '1';
+    }
+
+    return result;
+  }
+
+  async listTrainers(ownerId, { includeInactive = false } = {}) {
+    let list = this.trainersForOwner(ownerId);
+    if (!includeInactive) list = list.filter((t) => t.active !== false);
+    return list
+      .map((t) => this.normalizeTrainer(t))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, undefined, { sensitivity: 'base' }));
+  }
+
+  async createTrainer(payload, ownerId) {
+    const fields = this.validateTrainerInput(payload);
+    const timestamp = nowIso();
+    const trainer = {
+      id: newId(),
+      ownerId,
+      ...fields,
+      active: fields.active !== undefined ? fields.active : true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    this.data.trainers.push(trainer);
+    await this.save();
+    return this.normalizeTrainer(trainer);
+  }
+
+  async updateTrainer(id, payload, ownerId) {
+    const trainer = this.getTrainerRecord(id, ownerId);
+    if (!trainer) throw new Error('Trainer not found');
+    const fields = this.validateTrainerInput({ ...trainer, ...payload });
+    if (fields.active !== undefined) trainer.active = fields.active;
+    Object.assign(trainer, fields, { updatedAt: nowIso() });
+    await this.save();
+    return this.normalizeTrainer(trainer);
+  }
+
+  async deleteTrainer(id, ownerId) {
+    const index = this.data.trainers.findIndex((t) => t.id === id && t.ownerId === ownerId);
+    if (index === -1) throw new Error('Trainer not found');
+    this.data.trainers.splice(index, 1);
+    await this.save();
+    return { id };
+  }
+
+  expenseHeadsForOwner(ownerId) {
+    return this.data.expenseHeads.filter((h) => h.ownerId === ownerId);
+  }
+
+  getExpenseHeadRecord(id, ownerId) {
+    return this.data.expenseHeads.find((h) => h.id === id && h.ownerId === ownerId) ?? null;
+  }
+
+  async listExpenseHeads(ownerId) {
+    return this.expenseHeadsForOwner(ownerId)
+      .map((h) => ({ id: h.id, name: h.name, createdAt: h.createdAt }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }
+
+  async createExpenseHead(payload, ownerId) {
+    const name = String(payload.name ?? '').trim();
+    if (!name) throw new Error('Head name is required');
+    const dup = this.expenseHeadsForOwner(ownerId).find(
+      (h) => h.name.toLowerCase() === name.toLowerCase()
+    );
+    if (dup) throw new Error('Head already exists');
+
+    const head = {
+      id: newId(),
+      ownerId,
+      name,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    this.data.expenseHeads.push(head);
+    await this.save();
+    return { id: head.id, name: head.name, createdAt: head.createdAt };
+  }
+
+  async updateExpenseHead(id, payload, ownerId) {
+    const head = this.getExpenseHeadRecord(id, ownerId);
+    if (!head) throw new Error('Head not found');
+    const name = String(payload.name ?? '').trim();
+    if (!name) throw new Error('Head name is required');
+    head.name = name;
+    head.updatedAt = nowIso();
+    await this.save();
+    return { id: head.id, name: head.name };
+  }
+
+  async deleteExpenseHead(id, ownerId) {
+    const head = this.getExpenseHeadRecord(id, ownerId);
+    if (!head) throw new Error('Head not found');
+    const inUse = this.data.expenses.some((e) => e.headId === id && e.ownerId === ownerId);
+    if (inUse) throw new Error('Cannot delete: expenses use this head');
+    const index = this.data.expenseHeads.findIndex((h) => h.id === id && h.ownerId === ownerId);
+    this.data.expenseHeads.splice(index, 1);
+    await this.save();
+    return { id };
+  }
+
+  expensesForOwner(ownerId) {
+    return this.data.expenses.filter((e) => e.ownerId === ownerId);
+  }
+
+  async listExpenses(ownerId) {
+    return this.expensesForOwner(ownerId)
+      .map((e) => ({
+        id: e.id,
+        headId: e.headId,
+        amount: e.amount,
+        date: e.date,
+        note: e.note ?? '',
+        createdAt: e.createdAt,
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  async createExpense(payload, ownerId) {
+    const headId = String(payload.headId ?? '').trim();
+    if (!headId || !this.getExpenseHeadRecord(headId, ownerId)) {
+      throw new Error('Expense head is required');
+    }
+    const amount = Number(payload.amount);
+    if (!Number.isFinite(amount) || amount < 0) throw new Error('Amount must be zero or greater');
+    const dateRaw = payload.date ?? nowIso().slice(0, 10);
+    const date = new Date(dateRaw);
+    if (Number.isNaN(date.getTime())) throw new Error('Date is invalid');
+
+    const expense = {
+      id: newId(),
+      ownerId,
+      headId,
+      amount: Math.round(amount),
+      date: date.toISOString().slice(0, 10),
+      note: String(payload.note ?? '').trim(),
+      createdAt: nowIso(),
+    };
+    this.data.expenses.push(expense);
+    await this.save();
+    return expense;
+  }
+
+  async deleteExpense(id, ownerId) {
+    const index = this.data.expenses.findIndex((e) => e.id === id && e.ownerId === ownerId);
+    if (index === -1) throw new Error('Expense not found');
+    const [removed] = this.data.expenses.splice(index, 1);
+    await this.save();
+    return removed;
+  }
+
+  assetPurchasesForOwner(ownerId) {
+    return this.data.assetPurchases.filter((a) => a.ownerId === ownerId);
+  }
+
+  async listAssetPurchases(ownerId) {
+    return this.assetPurchasesForOwner(ownerId)
+      .map((a) => ({ ...a }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  async createAssetPurchase(payload, ownerId) {
+    const amount = Number(payload.amount);
+    if (!Number.isFinite(amount) || amount < 0) throw new Error('Amount must be zero or greater');
+    const dateRaw = payload.date ?? nowIso().slice(0, 10);
+    const date = new Date(dateRaw);
+    if (Number.isNaN(date.getTime())) throw new Error('Date is invalid');
+
+    const record = {
+      id: newId(),
+      ownerId,
+      description: String(payload.description ?? '').trim(),
+      amount: Math.round(amount),
+      date: date.toISOString().slice(0, 10),
+      note: String(payload.note ?? '').trim(),
+      createdAt: nowIso(),
+    };
+    this.data.assetPurchases.push(record);
+    await this.save();
+    return record;
   }
 
   async migrateOrphanStudents(users = []) {
@@ -1151,6 +1401,110 @@ function registerDatabaseHandlers(ipcMain) {
     guarded(async (session, _event, { id }) => {
       const database = await getDatabase();
       return database.deleteCategory(id, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:sales:list',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.listSales(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:trainers:list',
+    guarded(async (session, _event, options = {}) => {
+      const database = await getDatabase();
+      return database.listTrainers(session.id, options);
+    })
+  );
+
+  ipcMain.handle(
+    'db:trainers:create',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.createTrainer(payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:trainers:update',
+    guarded(async (session, _event, { id, ...payload }) => {
+      const database = await getDatabase();
+      return database.updateTrainer(id, payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:trainers:delete',
+    guarded(async (session, _event, { id }) => {
+      const database = await getDatabase();
+      return database.deleteTrainer(id, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:expense-heads:list',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.listExpenseHeads(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:expense-heads:create',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.createExpenseHead(payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:expense-heads:update',
+    guarded(async (session, _event, { id, ...payload }) => {
+      const database = await getDatabase();
+      return database.updateExpenseHead(id, payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:expense-heads:delete',
+    guarded(async (session, _event, { id }) => {
+      const database = await getDatabase();
+      return database.deleteExpenseHead(id, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:expenses:list',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.listExpenses(session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:expenses:create',
+    guarded(async (session, _event, payload) => {
+      const database = await getDatabase();
+      return database.createExpense(payload, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:expenses:delete',
+    guarded(async (session, _event, { id }) => {
+      const database = await getDatabase();
+      return database.deleteExpense(id, session.id);
+    })
+  );
+
+  ipcMain.handle(
+    'db:assets:list',
+    guarded(async (session) => {
+      const database = await getDatabase();
+      return database.listAssetPurchases(session.id);
     })
   );
 

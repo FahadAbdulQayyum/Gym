@@ -36,12 +36,18 @@ export default function AddMember() {
   const [form, setForm] = useState(emptyForm);
   const { packages: allPackages } = usePackages();
   const packages = activePackagesOnly(allPackages.length ? allPackages : DEFAULT_PACKAGES);
-  const [trainers] = useState([]);
+  const [trainers, setTrainers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const api = window.gymApp?.students;
+
+  useEffect(() => {
+    window.gymApp?.trainers?.list?.({ includeInactive: false }).then((list) => {
+      if (list) setTrainers(list);
+    });
+  }, []);
 
   const selectedPackage = packages.find((p) => p.id === form.packageId) ?? packages[0];
 
@@ -262,7 +268,7 @@ export default function AddMember() {
                 <option value="">—</option>
                 {trainers.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name}
+                    {t.fullName}
                   </option>
                 ))}
               </select>

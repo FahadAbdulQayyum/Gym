@@ -39,6 +39,29 @@ contextBridge.exposeInMainWorld('gymApp', {
   pos: {
     completeSale: (payload) => ipcRenderer.invoke('db:pos:complete-sale', payload),
   },
+  sales: {
+    list: () => ipcRenderer.invoke('db:sales:list'),
+  },
+  trainers: {
+    list: (options) => ipcRenderer.invoke('db:trainers:list', options ?? {}),
+    create: (payload) => ipcRenderer.invoke('db:trainers:create', payload),
+    update: (id, payload) => ipcRenderer.invoke('db:trainers:update', { id, ...payload }),
+    delete: (id) => ipcRenderer.invoke('db:trainers:delete', { id }),
+  },
+  expenseHeads: {
+    list: () => ipcRenderer.invoke('db:expense-heads:list'),
+    create: (payload) => ipcRenderer.invoke('db:expense-heads:create', payload),
+    update: (id, payload) => ipcRenderer.invoke('db:expense-heads:update', { id, ...payload }),
+    delete: (id) => ipcRenderer.invoke('db:expense-heads:delete', { id }),
+  },
+  expenses: {
+    list: () => ipcRenderer.invoke('db:expenses:list'),
+    create: (payload) => ipcRenderer.invoke('db:expenses:create', payload),
+    delete: (id) => ipcRenderer.invoke('db:expenses:delete', { id }),
+  },
+  assets: {
+    list: () => ipcRenderer.invoke('db:assets:list'),
+  },
   packages: {
     list: (options) => ipcRenderer.invoke('db:packages:list', options ?? {}),
     create: (payload) => ipcRenderer.invoke('db:packages:create', payload),

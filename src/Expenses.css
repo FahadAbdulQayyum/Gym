@@ -1,0 +1,136 @@
+.expenses-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.expenses-page__top {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.expenses-page__head-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.expenses-page__head-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+
+.expenses-page__head-list li span {
+  flex: 1;
+  color: #f0f0f2;
+}
+
+.expenses-page__head-list button {
+  border: none;
+  background: transparent;
+  color: #c8c8d0;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.expenses-page__del {
+  color: #fc8181 !important;
+  font-weight: 600;
+}
+
+.expenses-page__rename,
+.expenses-page__add-head {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.expenses-page__add-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.expenses-page__add-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #c8c8d0;
+}
+
+.expenses-page__note {
+  grid-column: 1 / -1;
+}
+
+.expenses-page__list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.expenses-page__list-header .module-card__title {
+  margin-bottom: 0;
+}
+
+.expenses-page__list-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.expenses-page__list-filters .module-input {
+  width: auto;
+  min-width: 140px;
+  margin-bottom: 0;
+}
+
+.expenses-page__list-filters span {
+  color: var(--text-muted);
+}
+
+.expenses-page__report-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.expenses-page__report-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.expenses-page__report-list li span:last-child {
+  color: #f0f0f2;
+}
+
+.expenses-page__no-data {
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .expenses-page__top {
+    grid-template-columns: 1fr;
+  }
+
+  .expenses-page__add-form {
+    grid-template-columns: 1fr;
+  }
+}

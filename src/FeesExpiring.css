@@ -1,0 +1,37 @@
+.fees-expiring__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.fees-expiring__days-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.fees-expiring__days-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #c8c8d0;
+}
+
+.fees-expiring__days-input {
+  width: 80px;
+}
+
+.fees-expiring__search {
+  flex: 1;
+  min-width: 200px;
+  margin-bottom: 0;
+}
+
+.fees-expiring__tip {
+  margin: 16px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-subtle);
+}
