@@ -26,13 +26,14 @@ export const APP_PERMISSIONS = [
 
 export function userCanAccess(session, pageId) {
   if (!session) return false;
-  if (session.role === 'admin') return true;
+  if (String(session.role ?? '').toLowerCase() === 'admin') return true;
   const permissions = session.permissions ?? [];
   return permissions.includes(pageId);
 }
 
 export function filterNavItems(items, session) {
-  if (!session || session.role === 'admin') return items;
+  if (!session) return items;
+  if (String(session.role ?? '').toLowerCase() === 'admin') return items;
   return items.filter((item) => userCanAccess(session, item.id));
 }
 

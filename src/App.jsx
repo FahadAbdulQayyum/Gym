@@ -293,7 +293,7 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
 
   return (
     <div className="app app--shell">
-      <AppSidebar activeId={activePage} onNavigate={setActivePage} session={session} />
+      <AppSidebar activeId={activePage} onNavigate={setActivePage} />
 
       <div className="app-main">
         <AuthNotice message={authNotice} onDismiss={onDismissAuthNotice} />

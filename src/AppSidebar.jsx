@@ -1,7 +1,4 @@
-import { filterNavItems } from './permissionsShared';
-
-const NAV_PRIMARY = [
-  { id: 'dashboard', label: 'Dashboard' },
+const NAV_PRIMARY = [  { id: 'dashboard', label: 'Dashboard' },
   { id: 'add-member', label: 'Add Member' },
   // { id: 'edit-members', label: 'Edit Members' },
   // { id: 'member-details', label: 'Complete Member Details' },
@@ -53,11 +50,10 @@ function NavGroup({ items, activeId, onNavigate }) {
   );
 }
 
-export default function AppSidebar({ activeId, onNavigate, brandName = 'Gym', session }) {
-  const primary = filterNavItems(NAV_PRIMARY, session);
-  const secondary = filterNavItems(NAV_SECONDARY, session);
-  const utility = filterNavItems(NAV_UTILITY, session);
-
+export default function AppSidebar({ activeId, onNavigate, brandName = 'Gym' }) {
+  const primary = NAV_PRIMARY;
+  const secondary = NAV_SECONDARY;
+  const utility = NAV_UTILITY;
   return (
     <aside className="app-sidebar">
       <div className="sidebar-brand">

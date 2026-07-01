@@ -97,9 +97,19 @@ class UserDatabase {
     const local = localById ?? localByName;
 
     if (!local) {
+      if (!Array.isArray(user.permissions)) {
+        user.permissions = [];
+      }
+      if (!user.role) {
+        user.role = 'staff';
+      }
       this.data.users.push(user);
     } else if (new Date(user.updatedAt).getTime() >= new Date(local.updatedAt).getTime()) {
+      const { role, permissions } = local;
       Object.assign(local, user);
+      // Role and permissions are managed locally; cloud accounts don't store them.
+      local.role = role;
+      local.permissions = Array.isArray(permissions) ? permissions : [];
     }
 
     this.dedupeUsersByUsername();
