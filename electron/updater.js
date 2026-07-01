@@ -13,6 +13,8 @@ function setupAutoUpdater(mainWindow) {
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.disableDifferentialDownload = false;
 
+  let pendingVersion = null;
+
   autoUpdater.setFeedURL({
     provider: 'github',
     owner: 'FahadAbdulQayyum',
@@ -20,10 +22,12 @@ function setupAutoUpdater(mainWindow) {
   });
 
   autoUpdater.on('checking-for-update', () => {
+    pendingVersion = null;
     sendStatus(mainWindow, { status: 'checking' });
   });
 
   autoUpdater.on('update-available', (info) => {
+    pendingVersion = info.version;
     sendStatus(mainWindow, {
       status: 'available',
       version: info.version,
@@ -31,6 +35,7 @@ function setupAutoUpdater(mainWindow) {
   });
 
   autoUpdater.on('update-not-available', (info) => {
+    pendingVersion = null;
     sendStatus(mainWindow, {
       status: 'not-available',
       version: info.version,
@@ -41,6 +46,7 @@ function setupAutoUpdater(mainWindow) {
     sendStatus(mainWindow, {
       status: 'downloading',
       percent: progress.percent,
+      version: pendingVersion,
     });
   });
 
@@ -52,6 +58,7 @@ function setupAutoUpdater(mainWindow) {
   });
 
   autoUpdater.on('error', (error) => {
+    pendingVersion = null;
     console.error('[updater]', error);
     sendStatus(mainWindow, {
       status: 'error',

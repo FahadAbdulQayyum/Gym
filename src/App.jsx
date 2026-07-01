@@ -250,7 +250,9 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
 
   useEffect(() => {
     if (!window.gymApp?.onUpdateStatus) return undefined;
-    return window.gymApp.onUpdateStatus(setUpdate);
+    return window.gymApp.onUpdateStatus((payload) => {
+      setUpdate((prev) => ({ ...prev, ...payload }));
+    });
   }, []);
 
   useEffect(() => {
