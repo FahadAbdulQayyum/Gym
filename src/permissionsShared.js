@@ -24,16 +24,27 @@ export const APP_PERMISSIONS = [
   { id: 'daily-sales', label: 'Daily Sales Report' },
 ];
 
+export const DEFAULT_STAFF_PERMISSIONS = ['dashboard', 'add-member'];
+
+function isAdminRole(role) {
+  return String(role ?? '').trim().toLowerCase() === 'admin';
+}
+
+export function effectivePermissions(session) {
+  if (!session) return [];
+  if (isAdminRole(session.role)) return null;
+  const permissions = session.permissions ?? [];
+  return permissions.length > 0 ? permissions : DEFAULT_STAFF_PERMISSIONS;
+}
+
 export function userCanAccess(session, pageId) {
   if (!session) return false;
-  if (String(session.role ?? '').toLowerCase() === 'admin') return true;
-  const permissions = session.permissions ?? [];
-  return permissions.includes(pageId);
+  if (isAdminRole(session.role)) return true;
+  return effectivePermissions(session).includes(pageId);
 }
 
 export function filterNavItems(items, session) {
-  if (!session) return items;
-  if (String(session.role ?? '').toLowerCase() === 'admin') return items;
+  if (!session || isAdminRole(session.role)) return items;
   return items.filter((item) => userCanAccess(session, item.id));
 }
 

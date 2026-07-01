@@ -194,8 +194,40 @@ class UserDatabase {
     };
   }
 
+  applyRemoteAuthFields(local, remote, { trustRemote = false } = {}) {
+    if (!local || !remote) return false;
+    let updated = false;
+
+    const remoteRole = String(remote.role ?? '').trim().toLowerCase();
+    if (remoteRole === 'admin' && local.role !== 'admin') {
+      local.role = 'admin';
+      updated = true;
+    } else if (trustRemote && remoteRole && local.role !== remoteRole) {
+      local.role = remoteRole === 'admin' ? 'admin' : 'staff';
+      updated = true;
+    }
+
+    if (Array.isArray(remote.permissions) && (trustRemote || remote.permissions.length > 0)) {
+      local.permissions = remote.permissions;
+      updated = true;
+    }
+
+    return updated;
+  }
+
+  refreshActiveSession() {
+    if (!this.session) return null;
+    const user = this.findUserById(this.session.id);
+    if (!user) {
+      this.session = null;
+      return null;
+    }
+    this.session = this.toPublicUser(user);
+    return this.session;
+  }
+
   requireAdmin(session) {
-    if (session.role !== 'admin') {
+    if (String(session.role ?? '').toLowerCase() !== 'admin') {
       throw new Error('Only administrators can manage users');
     }
   }
@@ -279,7 +311,7 @@ class UserDatabase {
   }
 
   getSession() {
-    return this.session;
+    return this.refreshActiveSession();
   }
 
   requireSession() {
@@ -370,7 +402,7 @@ class UserDatabase {
       passwordSalt: salt,
       passwordHash: hash,
       role: 'staff',
-      permissions: [],
+      permissions: ['dashboard', 'add-member'],
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -406,7 +438,11 @@ class UserDatabase {
       try {
         const remoteUser = await cloudLogin(apiConfig, normalized, validPassword);
         const user = await this.upsertLocalUser(remoteUser);
-        await this.writeSession(user);
+        const local = this.findUserById(user.id) ?? user;
+        if (this.applyRemoteAuthFields(local, remoteUser, { trustRemote: true })) {
+          await this.save({ skipSync: true });
+        }
+        await this.writeSession(local);
         return this.session;
       } catch (error) {
         if (error.status === 401) {
@@ -484,6 +520,8 @@ class UserDatabase {
       if (new Date(remote.updatedAt).getTime() > new Date(local.updatedAt).getTime()) {
         Object.assign(local, structuredClone(remote));
         changed = true;
+      } else if (this.applyRemoteAuthFields(local, remote)) {
+        changed = true;
       }
     }
 
@@ -512,7 +550,10 @@ class UserDatabase {
     }
 
     if (changed) {
-      return this.save({ skipSync: true }).then(() => true);
+      return this.save({ skipSync: true }).then(() => {
+        this.refreshActiveSession();
+        return true;
+      });
     }
 
     return Promise.resolve(false);

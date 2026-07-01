@@ -1,32 +1,33 @@
-const NAV_PRIMARY = [  { id: 'dashboard', label: 'Dashboard' },
+const NAV_PRIMARY = [
+  { id: 'dashboard', label: 'Dashboard' },
   { id: 'add-member', label: 'Add Member' },
-  // { id: 'edit-members', label: 'Edit Members' },
-  // { id: 'member-details', label: 'Complete Member Details' },
-  // { id: 'packages', label: 'Add Packages' },
-  // { id: 'fees', label: 'Collect Fees' },
-  // { id: 'fees-report', label: 'Fees Collection Report' },
-  // { id: 'pos', label: 'POS' },
-  // { id: 'inventory', label: 'Inventory' },
-  // { id: 'registration', label: 'Daily Registration Report' },
+  { id: 'edit-members', label: 'Edit Members' },
+  { id: 'member-details', label: 'Complete Member Details' },
+  { id: 'packages', label: 'Add Packages' },
+  { id: 'fees', label: 'Collect Fees' },
+  { id: 'fees-report', label: 'Fees Collection Report' },
+  { id: 'pos', label: 'POS' },
+  { id: 'inventory', label: 'Inventory' },
+  { id: 'registration', label: 'Daily Registration Report' },
 ];
 
 const NAV_SECONDARY = [
-  // { id: 'reports', label: 'Reports' },
-  // { id: 'fees-expire', label: 'Next 7 days member fees expire' },
-  // { id: 'trainers', label: 'Add Trainers' },
-  // { id: 'expenses', label: 'Expenses' },
-  // { id: 'attendance', label: 'Daily Attendance' },
-  // { id: 'zk50', label: 'Setup ZK50 Machine' },
-  // { id: 'assets', label: 'Purchase Gym Assets' },
+  { id: 'reports', label: 'Reports' },
+  { id: 'fees-expire', label: 'Next 7 days member fees expire' },
+  { id: 'trainers', label: 'Add Trainers' },
+  { id: 'expenses', label: 'Expenses' },
+  { id: 'attendance', label: 'Daily Attendance' },
+  { id: 'zk50', label: 'Setup ZK50 Machine' },
+  { id: 'assets', label: 'Purchase Gym Assets' },
 ];
 
 const NAV_UTILITY = [
-  // { id: 'csv-sample', label: 'Download CSV Sample' },
-  // { id: 'csv-import', label: 'Import CSV' },
-  // { id: 'backup', label: 'Get Software Backup' },
-  // { id: 'branding', label: 'Gym Branding' },
-  // { id: 'roles', label: 'User Roles' },
-  // { id: 'daily-sales', label: 'Daily Sales Report' },
+  { id: 'csv-sample', label: 'Download CSV Sample' },
+  { id: 'csv-import', label: 'Import CSV' },
+  { id: 'backup', label: 'Get Software Backup' },
+  { id: 'branding', label: 'Gym Branding' },
+  { id: 'roles', label: 'User Roles' },
+  { id: 'daily-sales', label: 'Daily Sales Report' },
 ];
 
 function NavGroup({ items, activeId, onNavigate }) {

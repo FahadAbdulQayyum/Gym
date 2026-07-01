@@ -220,16 +220,26 @@ function MainContent({ activePage, session }) {
   return <PlaceholderView title={PAGE_LABELS[activePage] ?? activePage} />;
 }
 
+function firstAccessiblePage(session) {
+  return (
+    ['dashboard', 'add-member', 'fees', 'edit-members', ...Object.keys(PAGE_LABELS)].find((id) =>
+      userCanAccess(session, id)
+    ) ?? 'dashboard'
+  );
+}
+
 function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
-  const [activePage, setActivePage] = useState('dashboard');
+  const [activePage, setActivePage] = useState(() => firstAccessiblePage(session));
   const [appVersion, setAppVersion] = useState('');
+
+  function handleNavigate(pageId) {
+    if (!userCanAccess(session, pageId)) return;
+    setActivePage(pageId);
+  }
 
   useEffect(() => {
     if (userCanAccess(session, activePage)) return;
-    const fallback =
-      ['dashboard', 'add-member', 'fees', 'edit-members'].find((id) =>
-        userCanAccess(session, id)
-      ) ?? 'dashboard';
+    const fallback = firstAccessiblePage(session);
     if (fallback !== activePage) {
       setActivePage(fallback);
     }
@@ -293,7 +303,7 @@ function MainApp({ session, onLogout, authNotice, onDismissAuthNotice }) {
 
   return (
     <div className="app app--shell">
-      <AppSidebar activeId={activePage} onNavigate={setActivePage} />
+      <AppSidebar activeId={activePage} onNavigate={handleNavigate} />
 
       <div className="app-main">
         <AuthNotice message={authNotice} onDismiss={onDismissAuthNotice} />
@@ -376,6 +386,15 @@ export default function App() {
       ?.getSession?.()
       .then((current) => setSession(current))
       .finally(() => setAuthLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!window.gymApp?.onSyncStatus) return undefined;
+    return window.gymApp.onSyncStatus(async (status) => {
+      if (!status?.merged && status?.status !== 'synced') return;
+      const current = await window.gymApp?.auth?.getSession?.();
+      if (current) setSession(current);
+    });
   }, []);
 
   async function handleLogout() {
