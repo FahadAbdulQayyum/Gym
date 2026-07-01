@@ -2,7 +2,7 @@ import { filterNavItems } from './permissionsShared';
 
 const NAV_PRIMARY = [
   { id: 'dashboard', label: 'Dashboard' },
-  // { id: 'add-member', label: 'Add Member' },
+  { id: 'add-member', label: 'Add Member' },
   // { id: 'edit-members', label: 'Edit Members' },
   // { id: 'member-details', label: 'Complete Member Details' },
   // { id: 'packages', label: 'Add Packages' },
