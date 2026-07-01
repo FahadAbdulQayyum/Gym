@@ -275,6 +275,26 @@ class UserDatabase {
 
     this.data.users.push(user);
     await this.save({ skipSync: true });
+
+    const apiConfig = await loadApiConfig();
+    if (apiConfig) {
+      try {
+        await cloudRegister(apiConfig, {
+          id: user.id,
+          username: normalized,
+          password: validPassword,
+        });
+      } catch (error) {
+        if (!isNetworkError(error) && !error.offline) {
+          console.warn(`Could not register "${normalized}" to cloud:`, error.message);
+        }
+      }
+    }
+
+    if (accountCreatedHook) {
+      await accountCreatedHook({ ensureUserIds: [user.id] });
+    }
+
     return this.listAppUsers().find((entry) => entry.id === user.id);
   }
 
@@ -450,7 +470,7 @@ class UserDatabase {
           if (/^unauthorized$/i.test(message.trim())) {
             console.warn('Cloud API key rejected — trying local login');
           } else {
-            throw new Error('Invalid username or password');
+            console.warn('Cloud login failed — trying local login');
           }
         } else if (isCloudMisconfigError(error)) {
           console.warn('Cloud login unavailable:', error.message);

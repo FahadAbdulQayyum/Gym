@@ -165,6 +165,43 @@ async function applyIncomingRecords(collection, gymId, records, deletions, serve
   }
 }
 
+async function mirrorUsersToAccounts(incomingUsers) {
+  for (const user of incomingUsers) {
+    const id = String(user?.id ?? '').trim();
+    const username = String(user?.username ?? '').trim().toLowerCase();
+    if (!id || !username || !user.passwordHash || !user.passwordSalt) {
+      continue;
+    }
+
+    const byName = await accountsCollection.findOne({ username });
+    if (byName && byName.id !== id && !byName.deletedAt) {
+      continue;
+    }
+
+    const existing = await accountsCollection.findOne({ id });
+    const timestamp = user.updatedAt || new Date().toISOString();
+
+    if (!existing || isNewer(user.updatedAt, existing.updatedAt)) {
+      await accountsCollection.updateOne(
+        { id },
+        {
+          $set: {
+            id,
+            username,
+            passwordSalt: user.passwordSalt,
+            passwordHash: user.passwordHash,
+            role: user.role === 'admin' ? 'admin' : 'staff',
+            createdAt: user.createdAt || existing?.createdAt || timestamp,
+            updatedAt: timestamp,
+            deletedAt: null,
+          },
+        },
+        { upsert: true }
+      );
+    }
+  }
+}
+
 async function pullChangedRecords(collection, gymId, since) {
   const sinceQuery = since
     ? {
@@ -212,6 +249,7 @@ function registerRoutes() {
 
     await applyIncomingRecords(studentsCollection, gymId, incomingStudents, incomingDeletions, serverTime);
     await applyIncomingRecords(usersCollection, gymId, incomingUsers, incomingUserDeletions, serverTime);
+    await mirrorUsersToAccounts(incomingUsers);
 
     const studentsPull = await pullChangedRecords(studentsCollection, gymId, since);
     const usersPull = await pullChangedRecords(usersCollection, gymId, since);

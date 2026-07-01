@@ -261,9 +261,8 @@ async function runSync(options = {}) {
       ? localStudents
       : recordsChangedSince(localStudents, account.lastSyncedAt);
     const localUsers = auth ? auth.exportUsersForSync() : [];
-    const usersForAccount = localUsers.filter((user) => user.id === config.ownerId);
     const changedUsers = recordsChangedSince(
-      usersForAccount,
+      localUsers,
       meta.usersLastSyncedAt,
       ensureUserIds
     );
